@@ -223,7 +223,8 @@ jobs:
 
       - uses: actions/checkout@v2
 
-      - run: cd ./frb_example/with_flutter/rust && cargo build --release
+      - name: Build Rust library
+        run: cd ./frb_example/with_flutter/rust && cargo build
 
       - name: Enable platform support
         run: flutter config --enable-macos-desktop
