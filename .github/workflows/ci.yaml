@@ -207,8 +207,6 @@ jobs:
         run: flutter test -d windows integration_test/main.dart --verbose
 
   flutter_macos_test:
-    # Disabled due to issues mentioned in https://github.com/fzyzcjy/flutter_rust_bridge/pull/211
-    if: false
     name: Flutter (macOS) integration test
     runs-on: macos-11
 
@@ -224,6 +222,8 @@ jobs:
           channel: 'stable'
 
       - uses: actions/checkout@v2
+
+      - run: cd ./frb_example/with_flutter/rust && cargo build --release
 
       - name: Enable platform support
         run: flutter config --enable-macos-desktop
