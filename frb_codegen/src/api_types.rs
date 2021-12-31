@@ -570,7 +570,7 @@ impl ApiStruct {
         }
     }
     pub fn is_const_capable(&self) -> bool {
-        self.fields.iter().all(|field| !field.meta.no_final)
+        self.fields.iter().all(|field| field.meta.is_final())
     }
 }
 
@@ -585,10 +585,17 @@ pub struct ApiField {
 #[derive(Debug, Clone, FromAttributes, Default)]
 #[darling(attributes(frb), default)]
 pub struct ApiFieldMeta {
-    pub no_final: bool,
-    pub deprecated: bool,
+    _no_final: bool,
+    #[darling(rename = "final")]
+    _is_final: bool,
     #[darling(multiple, rename = "attr")]
-    pub attribs: Vec<String>,
+    pub dart_attributes: Vec<String>,
+}
+
+impl ApiFieldMeta {
+    pub fn is_final(&self) -> bool {
+        self._is_final || !self._no_final
+    }
 }
 
 impl ApiField {
@@ -788,9 +795,9 @@ pub struct ApiEnum {
 #[derive(Debug, Clone, FromAttributes, Default)]
 #[darling(attributes(frb), default)]
 pub struct ApiEnumMeta {
-    pub json: bool,
-    #[darling(multiple)]
-    pub freezed: Vec<String>,
+    #[darling(multiple, rename = "attr")]
+    pub dart_attributes: Vec<String>,
+    pub no_freezed: bool,
 }
 
 impl ApiEnum {

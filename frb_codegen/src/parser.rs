@@ -20,10 +20,12 @@ pub fn parse(source_rust_content: &str, file: File) -> ApiFile {
         src_fns,
         src_struct_map,
         src_enums,
+        src_consts,
     } = extract_items_from_file(&file);
     let parser = Parser {
         src_struct_map,
         src_enums,
+        src_consts,
         struct_pool: HashMap::new(),
         enum_pool: HashMap::new(),
         parsing_or_parsed_struct_names: HashSet::new(),
@@ -40,6 +42,8 @@ struct Parser<'a> {
     src_enums: HashMap<String, &'a ItemEnum>,
     parsed_enums: HashSet<String>,
     enum_pool: ApiEnumPool,
+
+    src_consts: Vec<&'a ItemConst>,
 }
 
 fn extract_comments(attrs: &[Attribute]) -> Vec<Comment> {
@@ -358,12 +362,14 @@ struct SrcItems<'a> {
     src_fns: Vec<&'a ItemFn>,
     src_struct_map: StructMap<'a>,
     src_enums: EnumMap<'a>,
+    src_consts: Vec<&'a ItemConst>,
 }
 
 fn extract_items_from_file(file: &File) -> SrcItems {
     let mut src_fns = Vec::new();
     let mut src_struct_map = HashMap::new();
     let mut src_enums = HashMap::new();
+    let mut src_consts = Vec::new();
     for item in file.items.iter() {
         match item {
             Item::Fn(ref item_fn) => {
@@ -386,6 +392,9 @@ fn extract_items_from_file(file: &File) -> SrcItems {
             ) => {
                 src_enums.insert(item_enu.ident.to_string(), item_enu);
             }
+            Item::Const(con) => {
+                src_consts.push(con);
+            }
             _ => {}
         }
     }
@@ -395,6 +404,7 @@ fn extract_items_from_file(file: &File) -> SrcItems {
         src_fns,
         src_struct_map,
         src_enums,
+        src_consts,
     }
 }
 

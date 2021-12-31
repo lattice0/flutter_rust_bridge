@@ -555,7 +555,7 @@ fn generate_api_struct(s: &ApiStruct) -> String {
             format!(
                 "{}{} {} {};",
                 comments,
-                if f.meta.no_final { "" } else { "final" },
+                if f.meta.is_final() { "final" } else { "" },
                 f.ty.dart_api_type(),
                 f.name.dart_style()
             )
