@@ -4,6 +4,9 @@ use convert_case::{Case, Casing};
 
 use ApiType::*;
 
+use darling::FromAttributes;
+use syn::Attribute;
+
 pub type ApiStructPool = HashMap<String, ApiStruct>;
 pub type ApiEnumPool = HashMap<String, ApiEnum>;
 
@@ -13,6 +16,10 @@ pub struct ApiFile {
     pub struct_pool: ApiStructPool,
     pub enum_pool: ApiEnumPool,
     pub has_executor: bool,
+}
+
+pub fn parse_attributes<T: FromAttributes>(attrs: &[Attribute]) -> T {
+    T::from_attributes(attrs).unwrap_or_else(|e| panic!("Error parsing attribute: {}", e))
 }
 
 impl ApiFile {
@@ -113,7 +120,7 @@ pub struct ApiIdent {
 }
 
 impl std::fmt::Display for ApiIdent {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         fmt.write_str(&self.raw)
     }
 }
@@ -562,6 +569,9 @@ impl ApiStruct {
             ('(', ')')
         }
     }
+    pub fn is_const_capable(&self) -> bool {
+        self.fields.iter().all(|field| !field.meta.no_final)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -569,6 +579,16 @@ pub struct ApiField {
     pub ty: ApiType,
     pub name: ApiIdent,
     pub comments: Vec<Comment>,
+    pub meta: ApiFieldMeta,
+}
+
+#[derive(Debug, Clone, FromAttributes, Default)]
+#[darling(attributes(frb), default)]
+pub struct ApiFieldMeta {
+    pub no_final: bool,
+    pub deprecated: bool,
+    #[darling(multiple, rename = "attr")]
+    pub attribs: Vec<String>,
 }
 
 impl ApiField {
@@ -760,12 +780,26 @@ impl ApiTypeChild for ApiTypeEnumRef {
 pub struct ApiEnum {
     pub name: String,
     pub comments: Vec<Comment>,
+    pub meta: ApiEnumMeta,
     _variants: Vec<ApiVariant>,
     _is_struct: bool,
 }
 
+#[derive(Debug, Clone, FromAttributes, Default)]
+#[darling(attributes(frb), default)]
+pub struct ApiEnumMeta {
+    pub json: bool,
+    #[darling(multiple)]
+    pub freezed: Vec<String>,
+}
+
 impl ApiEnum {
-    pub fn new(name: String, comments: Vec<Comment>, mut variants: Vec<ApiVariant>) -> Self {
+    pub fn new(
+        name: String,
+        comments: Vec<Comment>,
+        mut variants: Vec<ApiVariant>,
+        attributes: &[Attribute],
+    ) -> Self {
         fn wrap_box(ty: ApiType) -> ApiType {
             match ty {
                 StructRef(_)
@@ -808,6 +842,7 @@ impl ApiEnum {
             comments,
             _variants: variants,
             _is_struct,
+            meta: parse_attributes(attributes),
         }
     }
 

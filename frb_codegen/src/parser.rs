@@ -101,6 +101,7 @@ impl<'a> Parser<'a> {
                         name: ApiIdent::new(name),
                         ty: self.parse_type(&type_string),
                         comments: extract_comments(&pat_type.attrs),
+                        meta: parse_attributes(&pat_type.attrs),
                     });
                 }
             } else {
@@ -307,13 +308,14 @@ impl<'a> Parser<'a> {
                                 ),
                                 ty: self.parse_type(&type_to_string(&field.ty)),
                                 comments: extract_comments(&field.attrs),
+                                meta: parse_attributes(&field.attrs),
                             })
                             .collect(),
                     }),
                 },
             })
             .collect();
-        ApiEnum::new(name, comments, variants)
+        ApiEnum::new(name, comments, variants, &src.attrs)
     }
 
     fn parse_struct_core(&mut self, ty: &str) -> ApiStruct {
@@ -337,6 +339,7 @@ impl<'a> Parser<'a> {
                 name: ApiIdent::new(field_name),
                 ty: field_type,
                 comments: extract_comments(&field.attrs),
+                meta: parse_attributes(&field.attrs),
             });
         }
 

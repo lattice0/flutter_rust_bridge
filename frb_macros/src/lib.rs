@@ -10,6 +10,23 @@ fn is_marker_attr(attr: &Attribute) -> bool {
 }
 
 /// Attribute to guide code generation.
+/// ### Common attributes
+/// - `attr = "@.."` attaches additional attributes onto an item.
+///     Can be declared multiple times.
+/// - `json` generates json_serializable boilerplate for an enum or struct.
+/// - `deprecated` denotes deprecation of an item.
+/// ### Attributes on structs
+/// - `no_final` denotes that all fields in this struct are non-final.
+/// ### Attributes on fields
+/// - `no_final` denotes that this field is non-final.
+///     Also marks the class's constructor as non-const.
+///     Has no effect if already declared at the struct level.
+/// - `final` denotes that this field is non-reassignable, which is
+///     the default. Takes precedence over declarations of `no_final`.
+/// ### Attributes on consts
+/// - `custom_section` denotes that the contents of a string literal are to be
+///     copied into the generated file. Other than the order of declaration,
+///     no guarantees are made concerning the placement of the code blocks.
 #[proc_macro_attribute]
 pub fn frb(_: TokenStream, item: TokenStream) -> TokenStream {
     if let Ok(mut input) = syn::parse::<DeriveInput>(item.clone()) {

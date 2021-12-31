@@ -90,7 +90,7 @@ class Attribute {
   final String key;
   final String value;
 
-  Attribute({
+  const Attribute({
     required this.key,
     required this.value,
   });
@@ -98,7 +98,7 @@ class Attribute {
 
 class Customized {
   final String finalField;
-  final String? nonFinalField;
+  String? nonFinalField;
 
   Customized({
     required this.finalField,
@@ -112,7 +112,7 @@ class Element {
   final List<Attribute>? attributes;
   final List<Element>? children;
 
-  Element({
+  const Element({
     this.tag,
     this.text,
     this.attributes,
@@ -137,7 +137,7 @@ class ExoticOptionals {
   final List<Attribute?>? nullableAttributes;
   final NewTypeInt? newtypeint;
 
-  ExoticOptionals({
+  const ExoticOptionals({
     this.int32,
     this.int64,
     this.float64,
@@ -186,7 +186,7 @@ class MySize {
   final int width;
   final int height;
 
-  MySize({
+  const MySize({
     required this.width,
     required this.height,
   });
@@ -198,7 +198,7 @@ class MyTreeNode {
   final bool valueBoolean;
   final List<MyTreeNode> children;
 
-  MyTreeNode({
+  const MyTreeNode({
     required this.valueI32,
     required this.valueVecU8,
     required this.valueBoolean,
@@ -209,7 +209,7 @@ class MyTreeNode {
 class NewTypeInt {
   final int field0;
 
-  NewTypeInt({
+  const NewTypeInt({
     required this.field0,
   });
 }
@@ -226,7 +226,7 @@ class VecOfPrimitivePack {
   final Float32List float32List;
   final Float64List float64List;
 
-  VecOfPrimitivePack({
+  const VecOfPrimitivePack({
     required this.int8List,
     required this.uint8List,
     required this.int16List,
@@ -265,7 +265,7 @@ class ZeroCopyVecOfPrimitivePack {
   final Float32List float32List;
   final Float64List float64List;
 
-  ZeroCopyVecOfPrimitivePack({
+  const ZeroCopyVecOfPrimitivePack({
     required this.int8List,
     required this.uint8List,
     required this.int16List,

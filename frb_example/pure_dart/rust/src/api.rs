@@ -371,11 +371,11 @@ pub fn handle_enum_parameter(weekday: Weekdays) -> Result<Weekdays> {
     Ok(weekday)
 }
 
-#[frb]
+#[frb(json)]
 #[derive(Debug, Clone)]
 pub struct Customized {
     pub final_field: String,
-    #[frb(non_final)]
+    #[frb(no_final, deprecated, attr = "@foo")]
     pub non_final_field: Option<String>,
 }
 
@@ -389,12 +389,9 @@ pub fn handle_customized_struct(val: Customized) -> Result<()> {
 pub enum KitchenSink {
     /// Comment on variant
     Empty,
-    #[frb(unimpl_variant_attr)]
     Primitives {
-        #[frb(unimpl_field_attr)]
         /// Dart field comment
         int32: i32,
-        #[frb(unimpl_deprecated)]
         float64: f64,
         boolean: bool,
     },
@@ -408,7 +405,6 @@ pub enum KitchenSink {
     Enums(Weekdays),
 }
 
-#[frb(unimpl_fn_attr)]
 pub fn handle_enum_struct(val: KitchenSink) -> Result<KitchenSink> {
     use KitchenSink::*;
     use Weekdays::*;

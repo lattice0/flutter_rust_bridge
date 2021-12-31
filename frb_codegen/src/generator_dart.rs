@@ -553,8 +553,9 @@ fn generate_api_struct(s: &ApiStruct) -> String {
         .map(|f| {
             let comments = dart_comments(&f.comments);
             format!(
-                "{}final {} {};",
+                "{}{} {} {};",
                 comments,
+                if f.meta.no_final { "" } else { "final" },
                 f.ty.dart_api_type(),
                 f.name.dart_style()
             )
@@ -570,14 +571,15 @@ fn generate_api_struct(s: &ApiStruct) -> String {
         .join("");
 
     let comments = dart_comments(&s.comments);
+    let const_prefix = if s.is_const_capable() { "const" } else { "" };
 
     format!(
         "{}class {} {{
             {}
 
-            {}({{{}}});
+            {} {}({{{}}});
         }}",
-        comments, s.name, field_declarations, s.name, constructor_params
+        comments, s.name, field_declarations, const_prefix, s.name, constructor_params
     )
 }
 
