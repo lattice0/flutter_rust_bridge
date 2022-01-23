@@ -2,3 +2,4 @@
 .idea
 *.iml
 target
+frb_example/pure_dart/rust/.vscode/settings.json
