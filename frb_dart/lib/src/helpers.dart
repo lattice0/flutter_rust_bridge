@@ -69,16 +69,23 @@ class _FlutterRustBridgeSetupMixinSkipWaitHint {
 mixin FlutterRustBridgeTimeoutMixin<T extends FlutterRustBridgeWireBase>
     on FlutterRustBridgeBase<T> {
   @override
-  Future<S> executeNormal<S>(FlutterRustBridgeTask<S> task) async {
+  Future<S> executeNormal<S>(FlutterRustBridgeTask<S> task) {
     // capture a stack trace at *here*, such that when timeout, can have a good stack trace
     final stackTrace = StackTrace.current;
 
-    return super.executeNormal(task).timeout(timeLimitForExecuteNormal,
-        onTimeout: () => throw FlutterRustBridgeTimeoutException(
-            timeLimitForExecuteNormal, task.debugName, stackTrace));
+    final timeLimitForExecuteNormal = this.timeLimitForExecuteNormal;
+
+    var future = super.executeNormal(task);
+    if (timeLimitForExecuteNormal != null) {
+      future = future.timeout(timeLimitForExecuteNormal,
+          onTimeout: () => throw FlutterRustBridgeTimeoutException(
+              timeLimitForExecuteNormal, task.debugName, stackTrace));
+    }
+
+    return future;
   }
 
-  /// The time limit for methods using [executeNormal]
+  /// The time limit for methods using [executeNormal]. Return null means *disable* this functionality.
   @protected
-  Duration get timeLimitForExecuteNormal;
+  Duration? get timeLimitForExecuteNormal;
 }

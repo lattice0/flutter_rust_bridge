@@ -156,6 +156,25 @@
         "code",
         "doc"
       ]
+    },
+    {
+      "login": "eltociear",
+      "name": "Ikko Ashimine",
+      "avatar_url": "https://avatars.githubusercontent.com/u/22633385?v=4",
+      "profile": "https://bandism.net/",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "alanlzhang",
+      "name": "alanlzhang",
+      "avatar_url": "https://avatars.githubusercontent.com/u/59032810?v=4",
+      "profile": "https://github.com/alanlzhang",
+      "contributions": [
+        "code",
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
