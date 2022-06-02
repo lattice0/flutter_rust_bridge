@@ -1,14 +1,19 @@
 //! Manages receiving and sending values across the FFI boundary.
 
+use cfg_if::cfg_if;
 use std::marker::PhantomData;
 
-/// The representation of a Dart object outside of the Dart heap.
-///
-/// Its implementation lies with the Dart language and therefore should not be
-/// depended on to be stable.
-pub use allo_isolate::ffi::DartCObject;
-pub use allo_isolate::IntoDart;
-use allo_isolate::Isolate;
+cfg_if! {
+    if #[cfg(not(target_arch = "wasm32"))] {
+        pub use allo_isolate::ffi::DartCObject;
+        pub use allo_isolate::IntoDart;
+        use allo_isolate::Isolate;
+    } else {
+        pub use crate::ffi::DartCObject;
+        pub use crate::ffi::IntoDart;
+        use crate::ffi::Isolate;
+    }
+}
 
 /// A wrapper around a Dart [`Isolate`].
 #[derive(Copy, Clone)]

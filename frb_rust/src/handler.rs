@@ -5,11 +5,24 @@ use std::mem::ManuallyDrop;
 use std::panic;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 
-use allo_isolate::IntoDart;
+cfg_if::cfg_if! {
+    if #[cfg(not(target_arch = "wasm32"))] {
+        use allo_isolate::IntoDart;
+    } else {
+        use crate::ffi::IntoDart;
+    }
+}
+
 use anyhow::Result;
-use lazy_static::lazy_static;
-use parking_lot::Mutex;
-use threadpool::ThreadPool;
+cfg_if::cfg_if! {
+    if #[cfg(not(target_arch = "wasm32"))] {
+        use lazy_static::lazy_static;
+        use parking_lot::Mutex;
+        use threadpool::ThreadPool;
+    } else {
+        use web_worker::WorkerPool;
+    }
+}
 
 use crate::rust2dart::{Rust2Dart, TaskCallback};
 use crate::support::{into_leak_vec_ptr, WireSyncReturnStruct};
@@ -204,6 +217,7 @@ impl<EH: ErrorHandler> ThreadPoolExecutor<EH> {
 }
 
 impl<EH: ErrorHandler> Executor for ThreadPoolExecutor<EH> {
+    #[cfg(not(target_arch = "wasm32"))]
     fn execute<TaskFn, TaskRet>(&self, wrap_info: WrapInfo, task: TaskFn)
     where
         TaskFn: FnOnce(TaskCallback) -> Result<TaskRet> + Send + UnwindSafe + 'static,
@@ -224,7 +238,7 @@ impl<EH: ErrorHandler> Executor for ThreadPoolExecutor<EH> {
             let thread_result = panic::catch_unwind(move || {
                 let rust2dart = Rust2Dart::new(wrap_info2.port.unwrap());
 
-                let ret = task(TaskCallback::new(rust2dart)).map(|ret| ret.into_dart());
+                let ret = task(TaskCallback::new(rust2dart)).map(IntoDart::into_dart);
 
                 match ret {
                     Ok(result) => {
@@ -250,6 +264,21 @@ impl<EH: ErrorHandler> Executor for ThreadPoolExecutor<EH> {
                 eh.handle_error(wrap_info.port.unwrap(), Error::Panic(error));
             }
         });
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn execute<TaskFn, TaskRet>(&self, wrap_info: WrapInfo, task: TaskFn)
+    where
+        TaskFn: FnOnce(TaskCallback) -> Result<TaskRet> + Send + UnwindSafe + 'static,
+        TaskRet: IntoDart,
+    {
+        thread_local! {
+            static WORKER_POOL: WorkerPool = WorkerPool::new(4).unwrap();
+        }
+        WORKER_POOL.with(|pool| {
+            let rust2dart = Rust2Dart::new(wrap_info.port.unwrap());
+            let ret = task(TaskCallback::new(rust2dart)).map(IntoDart::into_dart);
+        })
     }
 
     fn execute_sync<SyncTaskFn>(

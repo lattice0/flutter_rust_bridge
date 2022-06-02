@@ -18,6 +18,7 @@ use flutter_rust_bridge::*;
 // Section: wire functions
 
 #[no_mangle]
+#[wasm_bindgen]
 pub extern "C" fn wire_draw_mandelbrot(
     port_: i64,
     image_size: *mut wire_Size,
@@ -43,7 +44,20 @@ pub extern "C" fn wire_draw_mandelbrot(
     )
 }
 
+#[wasm_bindgen]
+pub fn fill_wire_Size(width: i32, height: i32) -> *mut wire_Size {
+    support::new_leak_box_ptr(wire_Size { width, height })
+}
+
+#[wasm_bindgen]
+pub fn free_wire_Size(ptr: *mut wire_Size) {
+    unsafe {
+        support::box_from_leak_ptr(ptr);
+    }
+}
+
 #[no_mangle]
+#[wasm_bindgen]
 pub extern "C" fn wire_passing_complex_structs(port_: i64, root: *mut wire_TreeNode) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap(
         WrapInfo {
@@ -59,6 +73,7 @@ pub extern "C" fn wire_passing_complex_structs(port_: i64, root: *mut wire_TreeN
 }
 
 #[no_mangle]
+#[wasm_bindgen]
 pub extern "C" fn wire_returning_structs_with_boxed_fields(port_: i64) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap(
         WrapInfo {
@@ -71,6 +86,7 @@ pub extern "C" fn wire_returning_structs_with_boxed_fields(port_: i64) {
 }
 
 #[no_mangle]
+#[wasm_bindgen]
 pub extern "C" fn wire_off_topic_memory_test_input_array(port_: i64, input: *mut wire_uint_8_list) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap(
         WrapInfo {
@@ -86,6 +102,7 @@ pub extern "C" fn wire_off_topic_memory_test_input_array(port_: i64, input: *mut
 }
 
 #[no_mangle]
+#[wasm_bindgen]
 pub extern "C" fn wire_off_topic_memory_test_output_zero_copy_buffer(port_: i64, len: i32) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap(
         WrapInfo {
@@ -101,6 +118,7 @@ pub extern "C" fn wire_off_topic_memory_test_output_zero_copy_buffer(port_: i64,
 }
 
 #[no_mangle]
+#[wasm_bindgen]
 pub extern "C" fn wire_off_topic_memory_test_output_vec_u8(port_: i64, len: i32) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap(
         WrapInfo {
@@ -116,6 +134,7 @@ pub extern "C" fn wire_off_topic_memory_test_output_vec_u8(port_: i64, len: i32)
 }
 
 #[no_mangle]
+#[wasm_bindgen]
 pub extern "C" fn wire_off_topic_memory_test_input_vec_of_object(
     port_: i64,
     input: *mut wire_list_size,
@@ -134,6 +153,7 @@ pub extern "C" fn wire_off_topic_memory_test_input_vec_of_object(
 }
 
 #[no_mangle]
+#[wasm_bindgen]
 pub extern "C" fn wire_off_topic_memory_test_output_vec_of_object(port_: i64, len: i32) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap(
         WrapInfo {
@@ -149,6 +169,7 @@ pub extern "C" fn wire_off_topic_memory_test_output_vec_of_object(port_: i64, le
 }
 
 #[no_mangle]
+#[wasm_bindgen]
 pub extern "C" fn wire_off_topic_memory_test_input_complex_struct(
     port_: i64,
     input: *mut wire_TreeNode,
@@ -167,6 +188,7 @@ pub extern "C" fn wire_off_topic_memory_test_input_complex_struct(
 }
 
 #[no_mangle]
+#[wasm_bindgen]
 pub extern "C" fn wire_off_topic_memory_test_output_complex_struct(port_: i64, len: i32) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap(
         WrapInfo {
@@ -182,6 +204,7 @@ pub extern "C" fn wire_off_topic_memory_test_output_complex_struct(port_: i64, l
 }
 
 #[no_mangle]
+#[wasm_bindgen]
 pub extern "C" fn wire_off_topic_deliberately_return_error(port_: i64) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap(
         WrapInfo {
@@ -194,6 +217,7 @@ pub extern "C" fn wire_off_topic_deliberately_return_error(port_: i64) {
 }
 
 #[no_mangle]
+#[wasm_bindgen]
 pub extern "C" fn wire_off_topic_deliberately_panic(port_: i64) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap(
         WrapInfo {
@@ -277,6 +301,15 @@ pub extern "C" fn new_list_size(len: i32) -> *mut wire_list_size {
         len,
     };
     support::new_leak_box_ptr(wrap)
+}
+
+#[wasm_bindgen]
+pub fn fill_list_size(items: Box<[usize]>) -> *mut wire_list_size {
+    let (ptr, len) = support::leak_boxed_slice(items);
+    support::new_leak_box_ptr(wire_list_size {
+        ptr: ptr as *mut wire_Size,
+        len: len as i32,
+    })
 }
 
 #[no_mangle]

@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use proc_macro::*;
 
 fn remove_marker_attr(input: TokenStream, ident: &str) -> TokenStream {
@@ -42,4 +44,12 @@ fn remove_marker_attr(input: TokenStream, ident: &str) -> TokenStream {
 #[proc_macro_attribute]
 pub fn frb(_: TokenStream, item: TokenStream) -> TokenStream {
     remove_marker_attr(item, "frb")
+}
+
+/// Shorthand for `#[cfg(target_arch = "wasm32")]`.
+#[proc_macro_attribute]
+pub fn wasm32(_: TokenStream, item: TokenStream) -> TokenStream {
+    let mut stream = TokenStream::from_str(r#"#[cfg(target_arch = "wasm32")]"#).unwrap();
+    stream.extend(item);
+    stream
 }

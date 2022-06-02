@@ -42,6 +42,18 @@ pub unsafe fn box_from_leak_ptr<T>(ptr: *mut T) -> Box<T> {
     Box::from_raw(ptr)
 }
 
+/// ## Safety
+/// The slice can be reconstructed using [from_raw_parts][std::slice::from_raw_parts],
+/// or freed using [box_from_leak_ptr].
+pub fn leak_boxed_slice<T>(mut slice: Box<[T]>) -> (*mut T, usize) {
+    let len = slice.len();
+    let ptr = slice.as_mut_ptr();
+    #[cfg(debug_assertions)]
+    assert_eq!(ptr as usize, &mut slice as *mut _ as usize);
+    core::mem::forget(slice);
+    (ptr, len)
+}
+
 /// NOTE for maintainer: Please keep this struct in sync with `DUMMY_WIRE_CODE_FOR_BINDGEN`
 /// in the code generator
 #[repr(C)]
