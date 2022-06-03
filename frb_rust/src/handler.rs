@@ -275,10 +275,12 @@ impl<EH: ErrorHandler> Executor for ThreadPoolExecutor<EH> {
         thread_local! {
             static WORKER_POOL: WorkerPool = WorkerPool::new(4).unwrap();
         }
-        WORKER_POOL.with(|pool| {
-            let rust2dart = Rust2Dart::new(wrap_info.port.unwrap());
-            let ret = task(TaskCallback::new(rust2dart)).map(IntoDart::into_dart);
-        })
+        let _ = WORKER_POOL.with(|pool| {
+            pool.run(move || {
+                let rust2dart = Rust2Dart::new(wrap_info.port.unwrap());
+                let ret = task(TaskCallback::new(rust2dart)).map(IntoDart::into_dart);
+            })
+        });
     }
 
     fn execute_sync<SyncTaskFn>(
