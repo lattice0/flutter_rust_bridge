@@ -3,7 +3,7 @@ import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:flutter/material.dart';
+import 'package:flutter/material.dart' hide Size;
 import 'package:flutter_rust_bridge_example/bridge_generated.dart';
 import 'package:flutter_rust_bridge_example/off_topic_code.dart';
 
@@ -11,12 +11,12 @@ import 'package:flutter_rust_bridge_example/off_topic_code.dart';
 // it is quite trivial and Flutter is just like that. Please refer to Flutter's tutorial to learn Flutter.
 
 const base = 'flutter_rust_bridge_example';
-final path = Platform.isWindows
-    ? '$base.dll'
+final path = Platform.isWindows ? '$base.dll' : 'lib$base.so';
+late final dylib = Platform.isIOS
+    ? DynamicLibrary.process()
     : Platform.isMacOS
-        ? 'lib$base.dylib'
-        : 'lib$base.so';
-late final dylib = Platform.isIOS ? DynamicLibrary.process() : DynamicLibrary.open(path);
+        ? DynamicLibrary.executable()
+        : DynamicLibrary.open(path);
 late final api = FlutterRustBridgeExampleImpl(dylib);
 
 void main() => runApp(const MyApp());

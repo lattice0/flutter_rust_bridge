@@ -28,13 +28,28 @@ use crate::others::*;
 
 pub const HANDLER_NAME: &str = "FLUTTER_RUST_BRIDGE_HANDLER";
 
+pub struct GeneratorOptions {
+    pub should_generate_sync_execution_mode_utility: bool,
+}
+impl Default for GeneratorOptions {
+    fn default() -> Self {
+        Self {
+            should_generate_sync_execution_mode_utility: true,
+        }
+    }
+}
+
 pub struct Output {
     pub code: String,
     pub extern_func_names: Vec<String>,
 }
 
-pub fn generate(ir_file: &IrFile, rust_wire_mod: &str) -> Output {
-    let mut generator = Generator::new();
+pub fn generate(
+    ir_file: &IrFile,
+    rust_wire_mod: &str,
+    options: Option<GeneratorOptions>,
+) -> Output {
+    let mut generator = Generator::new(options.unwrap_or_default());
     let code = generator.generate(ir_file, rust_wire_mod);
 
     Output {
@@ -45,12 +60,14 @@ pub fn generate(ir_file: &IrFile, rust_wire_mod: &str) -> Output {
 
 struct Generator {
     extern_func_collector: ExternFuncCollector,
+    options: GeneratorOptions,
 }
 
 impl Generator {
-    fn new() -> Self {
+    fn new(options: GeneratorOptions) -> Self {
         Self {
             extern_func_collector: ExternFuncCollector::new(),
+            options,
         }
     }
 
@@ -60,7 +77,7 @@ impl Generator {
         let distinct_input_types = ir_file.distinct_types(true, false);
         let distinct_output_types = ir_file.distinct_types(false, true);
 
-        lines.push(r#"#![allow(non_camel_case_types, unused, clippy::redundant_closure, clippy::useless_conversion, clippy::unit_arg, non_snake_case)]"#.to_string());
+        lines.push(r#"#![allow(non_camel_case_types, unused, clippy::redundant_closure, clippy::useless_conversion, clippy::unit_arg, clippy::double_parens, non_snake_case)]"#.to_string());
         lines.push(CODE_HEADER.to_string());
 
         lines.push(String::new());
@@ -78,7 +95,12 @@ impl Generator {
         lines.push(String::new());
 
         lines.push(self.section_header_comment("wire functions"));
-        lines.extend(ir_file.funcs.iter().map(|f| self.generate_wire_func(f)));
+        lines.extend(
+            ir_file
+                .funcs
+                .iter()
+                .map(|f| self.generate_wire_func(f, ir_file)),
+        );
 
         lines.push(self.section_header_comment("wire structs"));
         lines.extend(
@@ -91,6 +113,23 @@ impl Generator {
                 .iter()
                 .map(|ty| TypeRustGenerator::new(ty.clone(), ir_file).structs()),
         );
+
+        lines.push(self.section_header_comment("wrapper structs"));
+        lines.extend(
+            distinct_output_types
+                .iter()
+                .filter_map(|ty| self.generate_wrapper_struct(ty, ir_file)),
+        );
+        lines.push(self.section_header_comment("static checks"));
+        let static_checks: Vec<_> = distinct_output_types
+            .iter()
+            .filter_map(|ty| self.generate_static_checks(ty, ir_file))
+            .collect();
+        if !static_checks.is_empty() {
+            lines.push("const _: fn() = || {".to_owned());
+            lines.extend(static_checks);
+            lines.push("};".to_owned());
+        }
 
         lines.push(self.section_header_comment("allocate functions"));
         lines.extend(
@@ -125,8 +164,10 @@ impl Generator {
         lines.push(self.section_header_comment("executor"));
         lines.push(self.generate_executor(ir_file));
 
-        lines.push(self.section_header_comment("sync execution mode utility"));
-        lines.push(self.generate_sync_execution_mode_utility());
+        if self.options.should_generate_sync_execution_mode_utility {
+            lines.push(self.section_header_comment("sync execution mode utility"));
+            lines.push(self.generate_sync_execution_mode_utility());
+        }
 
         lines.join("\n")
     }
@@ -183,7 +224,7 @@ impl Generator {
         )
     }
 
-    fn generate_wire_func(&mut self, func: &IrFunc) -> String {
+    fn generate_wire_func(&mut self, func: &IrFunc, ir_file: &IrFile) -> String {
         let params = [
             if func.mode.has_port_argument() {
                 vec!["port_: i64".to_string()]
@@ -240,8 +281,8 @@ impl Generator {
             .collect::<Vec<_>>()
             .join("");
 
-        let code_call_inner_func = format!("{}({})", func.name, inner_func_params.join(", "));
-
+        let code_call_inner_func = TypeRustGenerator::new(func.output.clone(), ir_file)
+            .wrap_obj(format!("{}({})", func.name, inner_func_params.join(", ")));
         let code_call_inner_func_result = if func.fallible {
             code_call_inner_func
         } else {
@@ -349,6 +390,30 @@ impl Generator {
             )
         } else {
             "".to_string()
+        }
+    }
+
+    fn generate_static_checks(&mut self, ty: &IrType, ir_file: &IrFile) -> Option<String> {
+        TypeRustGenerator::new(ty.clone(), ir_file).static_checks()
+    }
+
+    fn generate_wrapper_struct(&mut self, ty: &IrType, ir_file: &IrFile) -> Option<String> {
+        match ty {
+            IrType::StructRef(_) | IrType::EnumRef(_) => {
+                TypeRustGenerator::new(ty.clone(), ir_file)
+                    .wrapper_struct()
+                    .map(|wrapper| {
+                        format!(
+                            r###"
+                #[derive(Clone)]
+                struct {}({});
+                "###,
+                            wrapper,
+                            ty.rust_api_type(),
+                        )
+                    })
+            }
+            _ => None,
         }
     }
 

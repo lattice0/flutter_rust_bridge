@@ -128,9 +128,76 @@ impl TypeRustGeneratorTrait for TypeEnumRefGenerator<'_> {
         )
     }
 
+    fn static_checks(&self) -> Option<String> {
+        let src = self.ir.get(self.context.ir_file);
+        src.wrapper_name.as_ref()?;
+
+        let branches: Vec<_> = src
+            .variants()
+            .iter()
+            .map(|variant| match &variant.kind {
+                IrVariantKind::Value => format!("{}::{} => {{}}", src.name, variant.name),
+                IrVariantKind::Struct(s) => {
+                    let pattern = s
+                        .fields
+                        .iter()
+                        .map(|field| field.name.rust_style().to_owned())
+                        .collect::<Vec<_>>();
+                    let pattern = if s.is_fields_named {
+                        format!("{}::{} {{ {} }}", src.name, variant.name, pattern.join(","))
+                    } else {
+                        format!("{}::{}({})", src.name, variant.name, pattern.join(","))
+                    };
+                    let checks = s
+                        .fields
+                        .iter()
+                        .map(|field| {
+                            format!(
+                                "let _: {} = {};\n",
+                                field.ty.rust_api_type(),
+                                field.name.rust_style(),
+                            )
+                        })
+                        .collect::<Vec<_>>();
+                    format!("{} => {{ {} }}", pattern, checks.join(""))
+                }
+            })
+            .collect();
+        Some(format!(
+            "match None::<{}>.unwrap() {{ {} }}",
+            src.name,
+            branches.join(","),
+        ))
+    }
+
+    fn wrapper_struct(&self) -> Option<String> {
+        let src = self.ir.get(self.context.ir_file);
+        src.wrapper_name.as_ref().cloned()
+    }
+
+    fn self_access(&self, obj: String) -> String {
+        let src = self.ir.get(self.context.ir_file);
+        match &src.wrapper_name {
+            Some(_) => format!("{}.0", obj),
+            None => obj,
+        }
+    }
+
+    fn wrap_obj(&self, obj: String) -> String {
+        match self.wrapper_struct() {
+            Some(wrapper) => format!("{}({})", wrapper, obj),
+            None => obj,
+        }
+    }
+
     fn impl_intodart(&self) -> String {
         let src = self.ir.get(self.context.ir_file);
 
+        let (name, self_path): (&str, &str) = match &src.wrapper_name {
+            Some(wrapper) => (wrapper, &src.name),
+            None => (&src.name, "Self"),
+        };
+        let self_ref = self.self_access("self".to_owned());
         if self.ir.is_struct {
             let variants = src
                 .variants()
@@ -140,13 +207,17 @@ impl TypeRustGeneratorTrait for TypeEnumRefGenerator<'_> {
                     let tag = format!("{}.into_dart()", idx);
                     match &variant.kind {
                         IrVariantKind::Value => {
-                            format!("Self::{} => vec![{}],", variant.name, tag)
+                            format!("{}::{} => vec![{}],", self_path, variant.name, tag)
                         }
                         IrVariantKind::Struct(s) => {
                             let fields = Some(tag)
                                 .into_iter()
                                 .chain(s.fields.iter().map(|field| {
-                                    format!("{}.into_dart()", field.name.rust_style())
+                                    let gen = TypeRustGenerator::new(
+                                        field.ty.clone(),
+                                        self.context.ir_file,
+                                    );
+                                    gen.convert_to_dart(field.name.rust_style().to_owned())
                                 }))
                                 .collect::<Vec<_>>();
                             let pattern = s
@@ -156,7 +227,8 @@ impl TypeRustGeneratorTrait for TypeEnumRefGenerator<'_> {
                                 .collect::<Vec<_>>();
                             let (left, right) = s.brackets_pair();
                             format!(
-                                "Self::{}{}{}{} => vec![{}],",
+                                "{}::{}{}{}{} => vec![{}],",
+                                self_path,
                                 variant.name,
                                 left,
                                 pattern.join(","),
@@ -169,14 +241,16 @@ impl TypeRustGeneratorTrait for TypeEnumRefGenerator<'_> {
                 .collect::<Vec<_>>();
             format!(
                 "impl support::IntoDart for {} {{
-                fn into_dart(self) -> support::DartCObject {{
-                    match self {{
-                        {}
-                    }}.into_dart()
+                    fn into_dart(self) -> support::DartCObject {{
+                        match {} {{
+                            {}
+                        }}.into_dart()
+                    }}
                 }}
-            }}
-            ",
-                self.ir.name,
+                impl support::IntoDartExceptPrimitive for {0} {{}}
+                ",
+                name,
+                self_ref,
                 variants.join("\n")
             )
         } else {
@@ -184,19 +258,19 @@ impl TypeRustGeneratorTrait for TypeEnumRefGenerator<'_> {
                 .variants()
                 .iter()
                 .enumerate()
-                .map(|(idx, variant)| format!("Self::{} => {},", variant.name, idx))
+                .map(|(idx, variant)| format!("{}::{} => {},", self_path, variant.name, idx))
                 .collect::<Vec<_>>()
                 .join("\n");
             format!(
                 "impl support::IntoDart for {} {{
                 fn into_dart(self) -> support::DartCObject {{
-                    match self {{
+                    match {} {{
                         {}
                     }}.into_dart()
                 }}
             }}
             ",
-                self.ir.name, variants
+                name, self_ref, variants
             )
         }
     }

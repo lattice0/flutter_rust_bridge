@@ -1,18 +1,19 @@
 /*
     Things this doesn't currently support that it might need to later:
 
-    - Import renames (use a::b as c) - these are silently ignored (!)
-    - Imports that start with two colons (use ::a::b) - these are also silently ignored (!)
-    - As of writing, flutter_rust_bridge doesn't support imports from outside
-      the current crate, though that's outside the scope of the code in this
-      file
+    - Import parsing is unfinished and so is currently disabled
+    - When import parsing is enabled:
+        - Import renames (use a::b as c) - these are silently ignored
+        - Imports that start with two colons (use ::a::b) - these are also silently ignored
 */
 
 use std::{collections::HashMap, fmt::Debug, fs, path::PathBuf};
 
 use cargo_metadata::MetadataCommand;
-use log::debug;
-use syn::{Ident, ItemEnum, ItemStruct, UseTree};
+use log::{debug, warn};
+use syn::{Attribute, Ident, ItemEnum, ItemStruct, UseTree};
+
+use crate::markers;
 
 /// Represents a crate, including a map of its modules, imports, structs and
 /// enums.
@@ -116,6 +117,7 @@ pub struct Struct {
     pub src: ItemStruct,
     pub visibility: Visibility,
     pub path: Vec<String>,
+    pub mirror: bool,
 }
 
 impl Debug for Struct {
@@ -125,6 +127,7 @@ impl Debug for Struct {
             .field("src", &"omitted")
             .field("visibility", &self.visibility)
             .field("path", &self.path)
+            .field("mirror", &self.mirror)
             .finish()
     }
 }
@@ -135,6 +138,7 @@ pub struct Enum {
     pub src: ItemEnum,
     pub visibility: Visibility,
     pub path: Vec<String>,
+    pub mirror: bool,
 }
 
 impl Debug for Enum {
@@ -144,6 +148,7 @@ impl Debug for Enum {
             .field("src", &"omitted")
             .field("visibility", &self.visibility)
             .field("path", &self.path)
+            .field("mirror", &self.mirror)
             .finish()
     }
 }
@@ -177,10 +182,17 @@ impl Debug for Module {
     }
 }
 
+/// Get a struct or enum ident, possibly remapped by a mirror marker
+fn get_ident(ident: &Ident, attrs: &[Attribute]) -> (Ident, bool) {
+    markers::extract_mirror_marker(attrs)
+        .and_then(|path| path.get_ident().map(|ident| (ident.clone(), true)))
+        .unwrap_or_else(|| (ident.clone(), false))
+}
+
 impl Module {
     pub fn resolve(&mut self) {
         self.resolve_modules();
-        self.resolve_imports();
+        // self.resolve_imports();
     }
 
     /// Maps out modules, structs and enums within the scope of this module
@@ -197,27 +209,33 @@ impl Module {
         for item in items.iter() {
             match item {
                 syn::Item::Struct(item_struct) => {
+                    let (ident, mirror) = get_ident(&item_struct.ident, &item_struct.attrs);
+                    let ident_str = ident.to_string();
                     scope_structs.push(Struct {
-                        ident: item_struct.ident.clone(),
+                        ident,
                         src: item_struct.clone(),
                         visibility: syn_vis_to_visibility(&item_struct.vis),
                         path: {
                             let mut path = self.module_path.clone();
-                            path.push(item_struct.ident.to_string());
+                            path.push(ident_str);
                             path
                         },
+                        mirror,
                     });
                 }
                 syn::Item::Enum(item_enum) => {
+                    let (ident, mirror) = get_ident(&item_enum.ident, &item_enum.attrs);
+                    let ident_str = ident.to_string();
                     scope_enums.push(Enum {
-                        ident: item_enum.ident.clone(),
+                        ident,
                         src: item_enum.clone(),
                         visibility: syn_vis_to_visibility(&item_enum.vis),
                         path: {
                             let mut path = self.module_path.clone();
-                            path.push(item_enum.ident.to_string());
+                            path.push(ident_str);
                             path
                         },
+                        mirror,
                     });
                 }
                 syn::Item::Mod(item_mod) => {
@@ -255,6 +273,15 @@ impl Module {
                             };
 
                             let file_exists = file_path.exists();
+
+                            if !file_exists {
+                                warn!(
+                                    "Skipping unresolvable module {} (tried {})",
+                                    &ident,
+                                    file_path.to_string_lossy()
+                                );
+                                continue;
+                            }
 
                             let source = if file_exists {
                                 let source_rust_content = fs::read_to_string(&file_path).unwrap();
@@ -300,6 +327,7 @@ impl Module {
         });
     }
 
+    #[allow(dead_code)]
     fn resolve_imports(&mut self) {
         let imports = &mut self.scope.as_mut().unwrap().imports;
 

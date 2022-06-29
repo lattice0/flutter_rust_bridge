@@ -4,8 +4,8 @@ pub use std::any::Any;
 pub use std::borrow::Cow;
 pub use std::fmt::Debug;
 use std::sync::atomic::{AtomicI32, Ordering};
-use std::sync::Arc;
 pub use std::sync::RwLock;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
@@ -204,6 +204,15 @@ pub fn handle_stream(sink: StreamSink<String>, arg: String) -> Result<()> {
     Ok(())
 }
 
+pub struct MyStreamEntry {
+    pub hello: String,
+}
+
+// https://github.com/fzyzcjy/flutter_rust_bridge/issues/398 reports a compile error like this
+pub fn handle_stream_of_struct(sink: StreamSink<MyStreamEntry>) -> Result<()> {
+    Ok(())
+}
+
 pub fn return_err() -> Result<i32> {
     Err(anyhow!(
         "return_err() is called, thus deliberately return Err"
@@ -276,7 +285,7 @@ pub struct ExoticOptionals {
 
 pub fn handle_optional_increment(opt: Option<ExoticOptionals>) -> Option<ExoticOptionals> {
     fn manipulate_list<T>(src: Option<Vec<T>>, push_value: T) -> Option<Vec<T>> {
-        let mut list = src.unwrap_or_else(Vec::new);
+        let mut list = src.unwrap_or_default();
         list.push(push_value);
         Some(list)
     }
@@ -293,7 +302,7 @@ pub fn handle_optional_increment(opt: Option<ExoticOptionals>) -> Option<ExoticO
         float32list: manipulate_list(opt.float32list, 0.),
         float64list: manipulate_list(opt.float64list, 0.),
         attributes: Some({
-            let mut list = opt.attributes.unwrap_or_else(Vec::new);
+            let mut list = opt.attributes.unwrap_or_default();
             list.push(Attribute {
                 key: "some-attrib".to_owned(),
                 value: "some-value".to_owned(),
@@ -301,7 +310,7 @@ pub fn handle_optional_increment(opt: Option<ExoticOptionals>) -> Option<ExoticO
             list
         }),
         nullable_attributes: Some({
-            let mut list = opt.nullable_attributes.unwrap_or_else(Vec::new);
+            let mut list = opt.nullable_attributes.unwrap_or_default();
             list.push(None);
             list
         }),
@@ -403,7 +412,7 @@ pub enum KitchenSink {
         float64: f64,
         boolean: bool,
     },
-    Nested(Box<KitchenSink>),
+    Nested(Box<KitchenSink>, i32),
     Optional(
         /// Comment on anonymous field
         Option<i32>,
@@ -428,7 +437,7 @@ pub fn handle_enum_struct(val: KitchenSink) -> KitchenSink {
             float64: float64 + 1.,
             boolean: !boolean,
         },
-        Nested(_) => Nested(Box::new(Empty)),
+        Nested(_, val) => Nested(Box::new(Empty), val + 1),
         Optional(a, b) => Optional(a.map(inc), b.map(inc)),
         Buffer(ZeroCopyBuffer(mut buf)) => {
             buf.push(1);
@@ -498,4 +507,122 @@ pub fn handle_opaque_repr(value: Opaque<RwLock<i32>>) -> Result<Option<String>> 
     } else {
         None
     })
+// Mirroring example:
+// The goal of mirroring is to use external objects without needing to convert them with an intermediate type
+// In this case, the struct ApplicationSettings is defined in another crate (called external-lib)
+
+// To use an external type with mirroring, it MUST be imported publicly (aka. re-export)
+pub use external_lib::{
+    ApplicationEnv, ApplicationEnvVar, ApplicationMessage, ApplicationMode, ApplicationSettings,
+};
+use lazy_static::lazy_static;
+
+// To mirror an external struct, you need to define a placeholder type with the same definition
+#[frb(mirror(ApplicationSettings))]
+pub struct _ApplicationSettings {
+    pub name: String,
+    pub version: String,
+    pub mode: ApplicationMode,
+    pub env: Box<ApplicationEnv>,
+}
+
+#[frb(mirror(ApplicationMode))]
+pub enum _ApplicationMode {
+    Standalone,
+    Embedded,
+}
+
+#[frb(mirror(ApplicationEnvVar))]
+pub struct _ApplicationEnvVar(pub String, pub bool);
+
+#[frb(mirror(ApplicationEnv))]
+pub struct _ApplicationEnv {
+    pub vars: Vec<ApplicationEnvVar>,
+}
+
+// This function can directly return an object of the external type ApplicationSettings because it has a mirror
+pub fn get_app_settings() -> ApplicationSettings {
+    external_lib::get_app_settings()
+}
+
+// Similarly, receiving an object from Dart works. Please note that the mirror definition must match entirely and the original struct must have all its fields public.
+pub fn is_app_embedded(app_settings: ApplicationSettings) -> bool {
+    // println!("env: {:?}", app_settings.env.vars);
+    matches!(app_settings.mode, ApplicationMode::Embedded)
+}
+
+#[frb(mirror(ApplicationMessage))]
+pub enum _ApplicationMessage {
+    DisplayMessage(String),
+    RenderPixel { x: i32, y: i32 },
+    Exit,
+}
+
+pub fn get_message() -> ApplicationMessage {
+    external_lib::poll_messages()[1].clone()
+}
+
+// [T; N] example
+pub fn get_array() -> [u8; 5] {
+    [1, 2, 3, 4, 5]
+}
+
+pub struct Point {
+    pub x: f32,
+    pub y: f32,
+}
+
+pub fn get_complex_array() -> [Point; 2] {
+    [Point { x: 1.0, y: 1.0 }, Point { x: 2.0, y: 2.0 }]
+}
+
+// usize
+pub fn get_usize(u: usize) -> usize {
+    u
+}
+
+/// Example for @freezed and @meta.immutable
+#[frb(dart_metadata=("freezed", "immutable" import "package:meta/meta.dart" as meta))]
+pub struct UserId {
+    pub value: u32,
+}
+
+pub fn next_user_id(user_id: UserId) -> UserId {
+    UserId {
+        value: user_id.value + 1,
+    }
+}
+
+// event listener test
+lazy_static! {
+    static ref EVENT_LISTENER: Arc<Mutex<Option<StreamSink<Event>>>> = Default::default();
+}
+
+#[derive(Clone)]
+pub struct Event {
+    pub address: String,
+    pub payload: String,
+}
+
+pub fn register_event_listener(listener: StreamSink<Event>) -> Result<()> {
+    (*EVENT_LISTENER.lock().unwrap()) = Some(listener);
+    Ok(())
+}
+
+pub fn close_event_listener() {
+    if let Some(ref listener) = *EVENT_LISTENER.lock().unwrap() {
+        listener.close();
+    } else {
+        return;
+    }
+    (*EVENT_LISTENER.lock().unwrap()) = None;
+}
+
+pub fn create_event() {
+    if let Some(ref listener) = *EVENT_LISTENER.lock().unwrap() {
+        listener.add(Event {
+            address: "something".into(),
+            payload: "payload".into(),
+        });
+    }
 }

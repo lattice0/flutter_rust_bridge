@@ -6,9 +6,11 @@ use syn::*;
 use crate::ir::IrType::*;
 use crate::ir::*;
 
+use crate::markers;
+
 use crate::source_graph::{Enum, Struct};
 
-use crate::parser::{extract_comments, type_to_string};
+use crate::parser::{extract_comments, extract_metadata, type_to_string};
 
 pub struct TypeParser<'a> {
     src_structs: HashMap<String, &'a Struct>,
@@ -42,11 +44,14 @@ impl<'a> TypeParser<'a> {
 }
 
 /// Generic intermediate representation of a type that can appear inside a function signature.
+#[derive(Debug)]
 pub enum SupportedInnerType {
     /// Path types with up to 1 generic type argument on the final segment. All segments before
     /// the last segment are ignored. The generic type argument must also be a valid
     /// `SupportedInnerType`.
     Path(SupportedPathType),
+    /// Array type
+    Array(Box<Self>, usize),
     /// The unit type `()`.
     Unit,
     /// Unparsed type, only useful for Opaque.
@@ -57,6 +62,7 @@ impl std::fmt::Display for SupportedInnerType {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Self::Path(p) => write!(f, "{}", p),
+            Self::Array(u, len) => write!(f, "[{}; {}]", u, len),
             Self::Unit => write!(f, "()"),
             Self::Verbatim(ver) => write!(f, "{}", quote::quote!(#ver)),
         }
@@ -64,6 +70,7 @@ impl std::fmt::Display for SupportedInnerType {
 }
 
 /// Represents a named type, with an optional path and up to 1 generic type argument.
+#[derive(Debug)]
 pub struct SupportedPathType {
     pub ident: syn::Ident,
     pub generic: Option<Box<SupportedInnerType>>,
@@ -108,6 +115,19 @@ impl SupportedInnerType {
                     _ => Some(SupportedInnerType::Verbatim(Box::new(ty.clone()))),
                 }
             }
+            syn::Type::Array(syn::TypeArray { elem, len, .. }) => {
+                let len: usize = match len {
+                    syn::Expr::Lit(lit) => match &lit.lit {
+                        syn::Lit::Int(x) => x.base10_parse().unwrap(),
+                        _ => panic!("Cannot parse array length"),
+                    },
+                    _ => panic!("Cannot parse array length"),
+                };
+                Some(SupportedInnerType::Array(
+                    Box::new(SupportedInnerType::try_from_syn_type(elem)?),
+                    len,
+                ))
+            }
             syn::Type::Tuple(syn::TypeTuple { elems, .. }) if elems.is_empty() => {
                 Some(SupportedInnerType::Unit)
             }
@@ -129,9 +149,24 @@ impl<'a> TypeParser<'a> {
     pub fn convert_to_ir_type(&mut self, ty: SupportedInnerType) -> Option<IrType> {
         match ty {
             SupportedInnerType::Path(p) => self.convert_path_to_ir_type(p),
+            SupportedInnerType::Array(p, len) => self.convert_array_to_ir_type(*p, len),
             SupportedInnerType::Unit => Some(IrType::Primitive(IrTypePrimitive::Unit)),
             SupportedInnerType::Verbatim(_) => None,
         }
+    }
+
+    /// Converts an array type into an `IrType` if possible.
+    pub fn convert_array_to_ir_type(
+        &mut self,
+        generic: SupportedInnerType,
+        _len: usize,
+    ) -> Option<IrType> {
+        self.convert_to_ir_type(generic).map(|inner| match inner {
+            Primitive(primitive) => PrimitiveList(IrTypePrimitiveList { primitive }),
+            others => GeneralList(IrTypeGeneralList {
+                inner: Box::new(others),
+            }),
+        })
     }
 
     /// Converts a path type into an `IrType` if possible.
@@ -238,6 +273,11 @@ impl<'a> TypeParser<'a> {
 
                         Some(StructRef(IrTypeStructRef {
                             name: ident_string.to_owned(),
+                            freezed: self
+                                .struct_pool
+                                .get(ident_string)
+                                .map(IrStruct::using_freezed)
+                                .unwrap_or(false),
                         }))
                     } else if self.src_enums.contains_key(ident_string) {
                         if self.parsed_enums.insert(ident_string.to_owned()) {
@@ -265,6 +305,11 @@ impl<'a> TypeParser<'a> {
     fn parse_enum_core(&mut self, ident: &syn::Ident) -> IrEnum {
         let src_enum = self.src_enums[&ident.to_string()];
         let name = src_enum.ident.to_string();
+        let wrapper_name = if src_enum.mirror {
+            Some(format!("mirror_{}", name))
+        } else {
+            None
+        };
         let path = src_enum.path.clone();
         let comments = extract_comments(&src_enum.src.attrs);
         let variants = src_enum
@@ -284,8 +329,10 @@ impl<'a> TypeParser<'a> {
                         let variant_ident = variant.ident.to_string();
                         IrVariantKind::Struct(IrStruct {
                             name: variant_ident,
+                            wrapper_name: None,
                             path: None,
                             is_fields_named: field_ident.is_some(),
+                            dart_metadata: extract_metadata(attrs),
                             comments: extract_comments(attrs),
                             fields: variant
                                 .fields
@@ -300,6 +347,7 @@ impl<'a> TypeParser<'a> {
                                             .unwrap_or_else(|| format!("field{}", idx)),
                                     ),
                                     ty: self.parse_type(&field.ty),
+                                    is_final: true,
                                     comments: extract_comments(&field.attrs),
                                 })
                                 .collect(),
@@ -308,7 +356,7 @@ impl<'a> TypeParser<'a> {
                 },
             })
             .collect();
-        IrEnum::new(name, path, comments, variants)
+        IrEnum::new(name, wrapper_name, path, comments, variants)
     }
 
     fn parse_struct_core(&mut self, ident: &syn::Ident) -> IrStruct {
@@ -330,18 +378,27 @@ impl<'a> TypeParser<'a> {
             fields.push(IrField {
                 name: IrIdent::new(field_name),
                 ty: field_type,
+                is_final: !markers::has_non_final(&field.attrs),
                 comments: extract_comments(&field.attrs),
             });
         }
 
         let name = src_struct.ident.to_string();
+        let wrapper_name = if src_struct.mirror {
+            Some(format!("mirror_{}", name))
+        } else {
+            None
+        };
         let path = Some(src_struct.path.clone());
+        let metadata = extract_metadata(&src_struct.src.attrs);
         let comments = extract_comments(&src_struct.src.attrs);
         IrStruct {
             name,
+            wrapper_name,
             path,
             fields,
             is_fields_named,
+            dart_metadata: metadata,
             comments,
         }
     }

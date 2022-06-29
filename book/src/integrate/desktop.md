@@ -1,4 +1,4 @@
-# Integrating with Desktop
+# Integrating with Windows and Linux
 
 This guide groups together instructions for Windows and Linux desktop apps,
 as they use the same build system.
@@ -23,7 +23,15 @@ Next, add this line to your `CMakeLists.txt` files:
  # Support files are copied into place next to the executable, so that it can
 ```
 
-> **Note** \
-> This method depends on `FetchContent` and co. being available, which
-> means that users with CMake versions older than 3.11 will have to install Corrosion
-> permanently on their system. See [additional notes here](../template/setup_others.md).
+## Linux
+
+On Linux, you will need to bump the minimum CMake version to 3.12 to make use
+of [Corrosion](https://github.com/corrosion-rs/corrosion), which is used by `rust.cmake`. Change this line in `linux/CMakeLists.txt`:
+
+```diff
+-cmake_minimum_required(VERSION 3.10)
++cmake_minimum_required(VERSION 3.12)
+```
+
+Alternatively, you can install Corrosion permanently on your system.
+Refer to the [Linux troubleshooting notes](../template/setup_desktop.md) here.

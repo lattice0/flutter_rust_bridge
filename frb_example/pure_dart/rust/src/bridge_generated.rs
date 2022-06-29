@@ -4,6 +4,7 @@
     clippy::redundant_closure,
     clippy::useless_conversion,
     clippy::unit_arg,
+    clippy::double_parens,
     non_snake_case
 )]
 // AUTO GENERATED FILE, DO NOT EDIT.
@@ -262,6 +263,18 @@ pub extern "C" fn wire_handle_stream(port_: i64, arg: *mut wire_uint_8_list) {
 }
 
 #[no_mangle]
+pub extern "C" fn wire_handle_stream_of_struct(port_: i64) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
+        WrapInfo {
+            debug_name: "handle_stream_of_struct",
+            port: Some(port_),
+            mode: FfiCallMode::Stream,
+        },
+        move || move |task_callback| handle_stream_of_struct(task_callback.stream_sink()),
+    )
+}
+
+#[no_mangle]
 pub extern "C" fn wire_return_err(port_: i64) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap(
         WrapInfo {
@@ -481,12 +494,30 @@ pub extern "C" fn wire_handle_opaque(port_: i64, value: *mut wire_OpaqueBag) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap(
         WrapInfo {
             debug_name: "handle_opaque",
+pub extern "C" fn wire_get_app_settings(port_: i64) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
+        WrapInfo {
+            debug_name: "get_app_settings",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || move |task_callback| Ok(mirror_ApplicationSettings(get_app_settings())),
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn wire_is_app_embedded(port_: i64, app_settings: *mut wire_ApplicationSettings) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
+        WrapInfo {
+            debug_name: "is_app_embedded",
             port: Some(port_),
             mode: FfiCallMode::Normal,
         },
         move || {
             let api_value = value.wire2api();
             move |task_callback| handle_opaque(api_value)
+            let api_app_settings = app_settings.wire2api();
+            move |task_callback| Ok(is_app_embedded(api_app_settings))
         },
     )
 }
@@ -496,6 +527,46 @@ pub extern "C" fn wire_handle_opaque_repr(port_: i64, value: *mut wire_RwLockI32
     FLUTTER_RUST_BRIDGE_HANDLER.wrap(
         WrapInfo {
             debug_name: "handle_opaque_repr",
+pub extern "C" fn wire_get_message(port_: i64) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
+        WrapInfo {
+            debug_name: "get_message",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || move |task_callback| Ok(mirror_ApplicationMessage(get_message())),
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn wire_get_array(port_: i64) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
+        WrapInfo {
+            debug_name: "get_array",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || move |task_callback| Ok(get_array()),
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn wire_get_complex_array(port_: i64) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
+        WrapInfo {
+            debug_name: "get_complex_array",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || move |task_callback| Ok(get_complex_array()),
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn wire_get_usize(port_: i64, u: usize) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
+        WrapInfo {
+            debug_name: "get_usize",
             port: Some(port_),
             mode: FfiCallMode::Normal,
         },
@@ -503,6 +574,60 @@ pub extern "C" fn wire_handle_opaque_repr(port_: i64, value: *mut wire_RwLockI32
             let api_value = value.wire2api();
             move |task_callback| handle_opaque_repr(api_value)
         },
+            let api_u = u.wire2api();
+            move |task_callback| Ok(get_usize(api_u))
+        },
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn wire_next_user_id(port_: i64, user_id: *mut wire_UserId) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
+        WrapInfo {
+            debug_name: "next_user_id",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || {
+            let api_user_id = user_id.wire2api();
+            move |task_callback| Ok(next_user_id(api_user_id))
+        },
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn wire_register_event_listener(port_: i64) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
+        WrapInfo {
+            debug_name: "register_event_listener",
+            port: Some(port_),
+            mode: FfiCallMode::Stream,
+        },
+        move || move |task_callback| register_event_listener(task_callback.stream_sink()),
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn wire_close_event_listener(port_: i64) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
+        WrapInfo {
+            debug_name: "close_event_listener",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || move |task_callback| Ok(close_event_listener()),
+    )
+}
+
+#[no_mangle]
+pub extern "C" fn wire_create_event(port_: i64) {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
+        WrapInfo {
+            debug_name: "create_event",
+            port: Some(port_),
+            mode: FfiCallMode::Normal,
+        },
+        move || move |task_callback| Ok(create_event()),
     )
 }
 
@@ -537,6 +662,28 @@ pub struct wire_Str {
 pub struct wire_StringList {
     ptr: *mut *mut wire_uint_8_list,
     len: i32,
+}
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct wire_ApplicationEnv {
+    vars: *mut wire_list_application_env_var,
+}
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct wire_ApplicationEnvVar {
+    field0: *mut wire_uint_8_list,
+    field1: bool,
+}
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct wire_ApplicationSettings {
+    name: *mut wire_uint_8_list,
+    version: *mut wire_uint_8_list,
+    mode: i32,
+    env: *mut wire_ApplicationEnv,
 }
 
 #[repr(C)]
@@ -605,6 +752,13 @@ pub struct wire_int_64_list {
 #[derive(Clone)]
 pub struct wire_int_8_list {
     ptr: *mut i8,
+    len: i32,
+}
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct wire_list_application_env_var {
+    ptr: *mut wire_ApplicationEnvVar,
     len: i32,
 }
 
@@ -682,6 +836,12 @@ pub struct wire_uint_8_list {
 
 #[repr(C)]
 #[derive(Clone)]
+pub struct wire_UserId {
+    value: u32,
+}
+
+#[repr(C)]
+#[derive(Clone)]
 pub struct wire_KitchenSink {
     tag: i32,
     kind: *mut KitchenSinkKind,
@@ -713,6 +873,7 @@ pub struct KitchenSink_Primitives {
 #[derive(Clone)]
 pub struct KitchenSink_Nested {
     field0: *mut wire_KitchenSink,
+    field1: i32,
 }
 
 #[repr(C)]
@@ -734,6 +895,57 @@ pub struct KitchenSink_Enums {
     field0: i32,
 }
 
+// Section: wrapper structs
+
+#[derive(Clone)]
+struct mirror_ApplicationEnv(ApplicationEnv);
+
+#[derive(Clone)]
+struct mirror_ApplicationEnvVar(ApplicationEnvVar);
+
+#[derive(Clone)]
+struct mirror_ApplicationMessage(ApplicationMessage);
+
+#[derive(Clone)]
+struct mirror_ApplicationMode(ApplicationMode);
+
+#[derive(Clone)]
+struct mirror_ApplicationSettings(ApplicationSettings);
+
+// Section: static checks
+
+const _: fn() = || {
+    {
+        let ApplicationEnv = None::<ApplicationEnv>.unwrap();
+        let _: Vec<ApplicationEnvVar> = ApplicationEnv.vars;
+    }
+    {
+        let ApplicationEnvVar_ = None::<ApplicationEnvVar>.unwrap();
+        let _: String = ApplicationEnvVar_.0;
+        let _: bool = ApplicationEnvVar_.1;
+    }
+    match None::<ApplicationMessage>.unwrap() {
+        ApplicationMessage::DisplayMessage(field0) => {
+            let _: String = field0;
+        }
+        ApplicationMessage::RenderPixel { x, y } => {
+            let _: i32 = x;
+            let _: i32 = y;
+        }
+        ApplicationMessage::Exit => {}
+    }
+    match None::<ApplicationMode>.unwrap() {
+        ApplicationMode::Standalone => {}
+        ApplicationMode::Embedded => {}
+    }
+    {
+        let ApplicationSettings = None::<ApplicationSettings>.unwrap();
+        let _: String = ApplicationSettings.name;
+        let _: String = ApplicationSettings.version;
+        let _: ApplicationMode = ApplicationSettings.mode;
+        let _: Box<ApplicationEnv> = ApplicationSettings.env;
+    }
+};
 // Section: allocate functions
 
 #[no_mangle]
@@ -763,6 +975,16 @@ pub extern "C" fn new_StringList(len: i32) -> *mut wire_StringList {
         len,
     };
     support::new_leak_box_ptr(wrap)
+}
+
+#[no_mangle]
+pub extern "C" fn new_box_application_env() -> *mut wire_ApplicationEnv {
+    support::new_leak_box_ptr(wire_ApplicationEnv::new_with_null_ptr())
+}
+
+#[no_mangle]
+pub extern "C" fn new_box_autoadd_application_settings() -> *mut wire_ApplicationSettings {
+    support::new_leak_box_ptr(wire_ApplicationSettings::new_with_null_ptr())
 }
 
 #[no_mangle]
@@ -828,6 +1050,8 @@ pub extern "C" fn new_box_autoadd_new_type_int() -> *mut wire_NewTypeInt {
 #[no_mangle]
 pub extern "C" fn new_box_autoadd_opaque_bag() -> *mut wire_OpaqueBag {
     support::new_leak_box_ptr(wire_OpaqueBag::new_with_null_ptr())
+pub extern "C" fn new_box_autoadd_user_id() -> *mut wire_UserId {
+    support::new_leak_box_ptr(wire_UserId::new_with_null_ptr())
 }
 
 #[no_mangle]
@@ -918,6 +1142,15 @@ pub extern "C" fn new_int_8_list(len: i32) -> *mut wire_int_8_list {
         len,
     };
     support::new_leak_box_ptr(ans)
+}
+
+#[no_mangle]
+pub extern "C" fn new_list_application_env_var(len: i32) -> *mut wire_list_application_env_var {
+    let wrap = wire_list_application_env_var {
+        ptr: support::new_leak_vec_ptr(<wire_ApplicationEnvVar>::new_with_null_ptr(), len),
+        len,
+    };
+    support::new_leak_box_ptr(wrap)
 }
 
 #[no_mangle]
@@ -1045,6 +1278,41 @@ impl Wire2Api<ZeroCopyBuffer<Vec<u8>>> for *mut wire_uint_8_list {
     }
 }
 
+impl Wire2Api<ApplicationEnv> for wire_ApplicationEnv {
+    fn wire2api(self) -> ApplicationEnv {
+        ApplicationEnv {
+            vars: self.vars.wire2api(),
+        }
+    }
+}
+
+impl Wire2Api<ApplicationEnvVar> for wire_ApplicationEnvVar {
+    fn wire2api(self) -> ApplicationEnvVar {
+        ApplicationEnvVar(self.field0.wire2api(), self.field1.wire2api())
+    }
+}
+
+impl Wire2Api<ApplicationMode> for i32 {
+    fn wire2api(self) -> ApplicationMode {
+        match self {
+            0 => ApplicationMode::Standalone,
+            1 => ApplicationMode::Embedded,
+            _ => unreachable!("Invalid variant for ApplicationMode: {}", self),
+        }
+    }
+}
+
+impl Wire2Api<ApplicationSettings> for wire_ApplicationSettings {
+    fn wire2api(self) -> ApplicationSettings {
+        ApplicationSettings {
+            name: self.name.wire2api(),
+            version: self.version.wire2api(),
+            mode: self.mode.wire2api(),
+            env: self.env.wire2api(),
+        }
+    }
+}
+
 impl Wire2Api<Attribute> for wire_Attribute {
     fn wire2api(self) -> Attribute {
         Attribute {
@@ -1057,6 +1325,20 @@ impl Wire2Api<Attribute> for wire_Attribute {
 impl Wire2Api<bool> for bool {
     fn wire2api(self) -> bool {
         self
+    }
+}
+
+impl Wire2Api<Box<ApplicationEnv>> for *mut wire_ApplicationEnv {
+    fn wire2api(self) -> Box<ApplicationEnv> {
+        let wrap = unsafe { support::box_from_leak_ptr(self) };
+        (*wrap).wire2api().into()
+    }
+}
+
+impl Wire2Api<ApplicationSettings> for *mut wire_ApplicationSettings {
+    fn wire2api(self) -> ApplicationSettings {
+        let wrap = unsafe { support::box_from_leak_ptr(self) };
+        (*wrap).wire2api().into()
     }
 }
 
@@ -1142,6 +1424,8 @@ impl Wire2Api<NewTypeInt> for *mut wire_NewTypeInt {
 
 impl Wire2Api<OpaqueBag> for *mut wire_OpaqueBag {
     fn wire2api(self) -> OpaqueBag {
+impl Wire2Api<UserId> for *mut wire_UserId {
+    fn wire2api(self) -> UserId {
         let wrap = unsafe { support::box_from_leak_ptr(self) };
         (*wrap).wire2api().into()
     }
@@ -1326,7 +1610,7 @@ impl Wire2Api<KitchenSink> for wire_KitchenSink {
             2 => unsafe {
                 let ans = support::box_from_leak_ptr(self.kind);
                 let ans = support::box_from_leak_ptr(ans.Nested);
-                KitchenSink::Nested(ans.field0.wire2api())
+                KitchenSink::Nested(ans.field0.wire2api(), ans.field1.wire2api())
             },
             3 => unsafe {
                 let ans = support::box_from_leak_ptr(self.kind);
@@ -1345,6 +1629,16 @@ impl Wire2Api<KitchenSink> for wire_KitchenSink {
             },
             _ => unreachable!(),
         }
+    }
+}
+
+impl Wire2Api<Vec<ApplicationEnvVar>> for *mut wire_list_application_env_var {
+    fn wire2api(self) -> Vec<ApplicationEnvVar> {
+        let vec = unsafe {
+            let wrap = support::box_from_leak_ptr(self);
+            support::vec_from_leak_ptr(wrap.ptr, wrap.len)
+        };
+        vec.into_iter().map(Wire2Api::wire2api).collect()
     }
 }
 
@@ -1464,6 +1758,20 @@ impl Wire2Api<Vec<u8>> for *mut wire_uint_8_list {
     }
 }
 
+impl Wire2Api<UserId> for wire_UserId {
+    fn wire2api(self) -> UserId {
+        UserId {
+            value: self.value.wire2api(),
+        }
+    }
+}
+
+impl Wire2Api<usize> for usize {
+    fn wire2api(self) -> usize {
+        self
+    }
+}
+
 impl Wire2Api<Weekdays> for i32 {
     fn wire2api(self) -> Weekdays {
         match self {
@@ -1516,6 +1824,30 @@ impl NewWithNullPtr for wire_Str {
     fn new_with_null_ptr() -> Self {
         Self {
             ptr: core::ptr::null(),
+impl NewWithNullPtr for wire_ApplicationEnv {
+    fn new_with_null_ptr() -> Self {
+        Self {
+            vars: core::ptr::null_mut(),
+        }
+    }
+}
+
+impl NewWithNullPtr for wire_ApplicationEnvVar {
+    fn new_with_null_ptr() -> Self {
+        Self {
+            field0: core::ptr::null_mut(),
+            field1: Default::default(),
+        }
+    }
+}
+
+impl NewWithNullPtr for wire_ApplicationSettings {
+    fn new_with_null_ptr() -> Self {
+        Self {
+            name: core::ptr::null_mut(),
+            version: core::ptr::null_mut(),
+            mode: Default::default(),
+            env: core::ptr::null_mut(),
         }
     }
 }
@@ -1585,6 +1917,7 @@ pub extern "C" fn inflate_KitchenSink_Nested() -> *mut KitchenSinkKind {
     support::new_leak_box_ptr(KitchenSinkKind {
         Nested: support::new_leak_box_ptr(KitchenSink_Nested {
             field0: core::ptr::null_mut(),
+            field1: Default::default(),
         }),
     })
 }
@@ -1660,11 +1993,73 @@ impl NewWithNullPtr for wire_OpaqueBag {
             array: core::ptr::null_mut(),
             lifetime: core::ptr::null_mut(),
             trait_obj: core::ptr::null_mut(),
+impl NewWithNullPtr for wire_UserId {
+    fn new_with_null_ptr() -> Self {
+        Self {
+            value: Default::default(),
         }
     }
 }
 
 // Section: impl IntoDart
+
+impl support::IntoDart for mirror_ApplicationEnv {
+    fn into_dart(self) -> support::DartCObject {
+        vec![self
+            .0
+            .vars
+            .into_iter()
+            .map(|v| mirror_ApplicationEnvVar(v))
+            .collect::<Vec<_>>()
+            .into_dart()]
+        .into_dart()
+    }
+}
+impl support::IntoDartExceptPrimitive for mirror_ApplicationEnv {}
+
+impl support::IntoDart for mirror_ApplicationEnvVar {
+    fn into_dart(self) -> support::DartCObject {
+        vec![self.0 .0.into_dart(), self.0 .1.into_dart()].into_dart()
+    }
+}
+impl support::IntoDartExceptPrimitive for mirror_ApplicationEnvVar {}
+
+impl support::IntoDart for mirror_ApplicationMessage {
+    fn into_dart(self) -> support::DartCObject {
+        match self.0 {
+            ApplicationMessage::DisplayMessage(field0) => vec![0.into_dart(), field0.into_dart()],
+            ApplicationMessage::RenderPixel { x, y } => {
+                vec![1.into_dart(), x.into_dart(), y.into_dart()]
+            }
+            ApplicationMessage::Exit => vec![2.into_dart()],
+        }
+        .into_dart()
+    }
+}
+impl support::IntoDartExceptPrimitive for mirror_ApplicationMessage {}
+
+impl support::IntoDart for mirror_ApplicationMode {
+    fn into_dart(self) -> support::DartCObject {
+        match self.0 {
+            ApplicationMode::Standalone => 0,
+            ApplicationMode::Embedded => 1,
+        }
+        .into_dart()
+    }
+}
+
+impl support::IntoDart for mirror_ApplicationSettings {
+    fn into_dart(self) -> support::DartCObject {
+        vec![
+            self.0.name.into_dart(),
+            self.0.version.into_dart(),
+            mirror_ApplicationMode(self.0.mode).into_dart(),
+            mirror_ApplicationEnv((*self.0.env)).into_dart(),
+        ]
+        .into_dart()
+    }
+}
+impl support::IntoDartExceptPrimitive for mirror_ApplicationSettings {}
 
 impl support::IntoDart for Attribute {
     fn into_dart(self) -> support::DartCObject {
@@ -1685,6 +2080,13 @@ impl support::IntoDart for Element {
     }
 }
 impl support::IntoDartExceptPrimitive for Element {}
+
+impl support::IntoDart for Event {
+    fn into_dart(self) -> support::DartCObject {
+        vec![self.address.into_dart(), self.payload.into_dart()].into_dart()
+    }
+}
+impl support::IntoDartExceptPrimitive for Event {}
 
 impl support::IntoDart for ExoticOptionals {
     fn into_dart(self) -> support::DartCObject {
@@ -1724,7 +2126,9 @@ impl support::IntoDart for KitchenSink {
                 float64.into_dart(),
                 boolean.into_dart(),
             ],
-            Self::Nested(field0) => vec![2.into_dart(), field0.into_dart()],
+            Self::Nested(field0, field1) => {
+                vec![2.into_dart(), field0.into_dart(), field1.into_dart()]
+            }
             Self::Optional(field0, field1) => {
                 vec![3.into_dart(), field0.into_dart(), field1.into_dart()]
             }
@@ -1734,6 +2138,7 @@ impl support::IntoDart for KitchenSink {
         .into_dart()
     }
 }
+impl support::IntoDartExceptPrimitive for KitchenSink {}
 
 impl support::IntoDart for MySize {
     fn into_dart(self) -> support::DartCObject {
@@ -1741,6 +2146,13 @@ impl support::IntoDart for MySize {
     }
 }
 impl support::IntoDartExceptPrimitive for MySize {}
+
+impl support::IntoDart for MyStreamEntry {
+    fn into_dart(self) -> support::DartCObject {
+        vec![self.hello.into_dart()].into_dart()
+    }
+}
+impl support::IntoDartExceptPrimitive for MyStreamEntry {}
 
 impl support::IntoDart for MyTreeNode {
     fn into_dart(self) -> support::DartCObject {
@@ -1774,6 +2186,19 @@ impl support::IntoDart for OpaqueBag {
     }
 }
 impl support::IntoDartExceptPrimitive for OpaqueBag {}
+impl support::IntoDart for Point {
+    fn into_dart(self) -> support::DartCObject {
+        vec![self.x.into_dart(), self.y.into_dart()].into_dart()
+    }
+}
+impl support::IntoDartExceptPrimitive for Point {}
+
+impl support::IntoDart for UserId {
+    fn into_dart(self) -> support::DartCObject {
+        vec![self.value.into_dart()].into_dart()
+    }
+}
+impl support::IntoDartExceptPrimitive for UserId {}
 
 impl support::IntoDart for VecOfPrimitivePack {
     fn into_dart(self) -> support::DartCObject {

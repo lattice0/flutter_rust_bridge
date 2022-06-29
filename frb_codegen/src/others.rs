@@ -4,7 +4,7 @@ use std::path::Path;
 
 use anyhow::{anyhow, Result};
 use lazy_static::lazy_static;
-use log::{error, info, warn};
+use log::{info, warn};
 use pathdiff::diff_paths;
 use regex::RegexBuilder;
 
@@ -13,12 +13,12 @@ use regex::RegexBuilder;
 // NOTE please sync [DUMMY_WIRE_CODE_FOR_BINDGEN] and [EXTRA_EXTERN_FUNC_NAMES]
 pub const DUMMY_WIRE_CODE_FOR_BINDGEN: &str = r#"
     // ----------- DUMMY CODE FOR BINDGEN ----------
-    
+
     // copied from: allo-isolate
     pub type DartPort = i64;
     pub type DartPostCObjectFnType = unsafe extern "C" fn(port_id: DartPort, message: *mut std::ffi::c_void) -> bool;
     #[no_mangle] pub unsafe extern "C" fn store_dart_post_cobject(ptr: DartPostCObjectFnType) { panic!("dummy code") }
-    
+
     // copied from: frb_rust::support.rs
     #[repr(C)]
     pub struct WireSyncReturnStruct {
@@ -26,7 +26,7 @@ pub const DUMMY_WIRE_CODE_FOR_BINDGEN: &str = r#"
         pub len: i32,
         pub success: bool,
     }
-    
+
     // ---------------------------------------------
     "#;
 
@@ -107,13 +107,18 @@ pub fn extract_dart_wire_content(content: &str) -> DartBasicCode {
     }
 }
 
-pub fn sanity_check(generated_dart_wire_code: &str, dart_wire_class_name: &str) {
+pub fn sanity_check(
+    generated_dart_wire_code: &str,
+    dart_wire_class_name: &str,
+) -> anyhow::Result<()> {
     if !generated_dart_wire_code.contains(dart_wire_class_name) {
-        error!(
+        return Err(crate::error::Error::str(
             "Nothing is generated for dart wire class. \
-            Maybe you forget to put code like `mod the_generated_bridge_code;` to your `lib.rs`?"
-        );
+            Maybe you forget to put code like `mod the_generated_bridge_code;` to your `lib.rs`?",
+        )
+        .into());
     }
+    Ok(())
 }
 
 pub fn try_add_mod_to_lib(rust_crate_dir: &str, rust_output_path: &str) {
@@ -144,7 +149,7 @@ pub fn auto_add_mod_to_lib_core(rust_crate_dir: &str, rust_output_path: &str) ->
         .to_str()
         .ok_or_else(|| anyhow!(""))?
         .to_string()
-        .replace("/", "::");
+        .replace('/', "::");
     let expect_code = format!("mod {};", mod_name);
 
     let path_lib_rs = path_src_folder.join("lib.rs");

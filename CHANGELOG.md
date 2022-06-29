@@ -1,5 +1,106 @@
-## Unreleased
+## 1.34.2
 
+* Bump dependency versions
+
+## 1.34.1
+
+* Add suitable `ignore_for_file`
+
+## 1.34.0
+
+* Generate Dart `constMeta` as a field, such that users can refer to it when needed #487
+
+## 1.33.0
+
+* Adding an option to prevent free_WireSyncReturnStruct function from being generated #481 (thanks @sccheruku)
+
+## 1.32.0
+
+* Allow `FlutterRustBridgeTimeoutMixin` to disable timeout
+
+## 1.31.0
+
+* Support `#[frb(metadata=("freezed", "immutable" import "package:meta/meta.dart" as meta))]` for structs #463 (thanks @alanlzhang)
+
+## 1.30.0
+
+* Support non-final fields in Dart structs #452 (thanks @surban)
+
+## 1.29.0
+
+* Make code generator a lib to be used in build.rs; add error types for codegen; depend on cbindgen directly; update docs #434 (thanks @sagudev)
+* Update dep in locks #441 (thanks @sagudev)
+* Add support for usize and [T;N] #442 (thanks @trobanga)
+
+## 1.28.1
+
+* Fix LLVM path #431 (thanks @sagudev)
+* Bump dependency
+
+## 1.28.0
+
+* Add doc for Android NDK bug #423 (thanks @AlienKevin)
+* Update to match current template #426 (thanks @Desdaemon)
+* Add LLVM 14 #416 (thanks @sagudev)
+
+## 1.27.2
+
+* Enhance documentation
+
+## 1.27.1
+
+* Format `frb_dart` package line length from 120 to 80
+
+## 1.27.0
+
+* Add brackets to boxed variable #414 (thanks @Syndim)
+
+## 1.26.0
+
+* Add default LLVM installation path for Windows #408 (thanks @Desdaemon)
+
+## 1.25.0
+
+* Ignore prefer_const_constructors in generated code #401 (thanks @Surban)
+* Add IntoDartExceptPrimitive impl for enums #404 (thanks @Desdaemon)
+
+## 1.24.0
+
+* Skip unresolvable modules #400 (thanks @Surban)
+
+## 1.23.0
+
+* Fix extra comma in enum structs #391 (thanks @Desdaemon)
+
+## 1.22.2
+
+* Bump dependency versions
+
+## 1.22.1
+
+* Improve dart analyzer ignores
+
+## 1.22.0
+
+* Make mirroring work for more use cases: tuple structs, enum variants, wrapping in Vec and Optional #359 (thanks @Unoqwy)
+* Bump dependency versions
+
+## 1.21.1
+
+* Bump dependency version
+
+## 1.21.0
+
+* CLI improvements: Run `build_runner` automatically, and more flags #363 (thanks @Desdaemon)
+* Disable import parsing in source_graph #364 (thanks @Secondflight)
+
+## 1.20.1
+
+* More code comments and CI related to Corrosion #358 (thanks @Desdaemon)
+
+## 1.20.0
+
+* Add struct mirrors to use external types #352 (thanks @Unoqwy)
 * Add examples to documentation
 
 ## 1.19.2
@@ -159,4 +260,3 @@
 ## 1.0.0
 
 * Initial release
-

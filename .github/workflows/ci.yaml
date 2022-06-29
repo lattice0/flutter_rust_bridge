@@ -3,12 +3,12 @@ name: CI
 on:
   push:
     paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
+      - "docs/**"
+      - "**/*.md"
   pull_request:
     paths-ignore:
-      - 'docs/**'
-      - '**/*.md'
+      - "docs/**"
+      - "**/*.md"
 
 env:
   CARGO_TERM_COLOR: always
@@ -30,12 +30,15 @@ jobs:
 
       - uses: actions/setup-python@v2
         with:
-          python-version: '3.x'
+          python-version: "3.x"
 
-      - name: Install valgrind
-        run: sudo apt install -y valgrind
+      - name: Install valgrind and llvm
+        run: sudo apt update && sudo apt install -y valgrind libclang-dev
 
       - uses: dart-lang/setup-dart@v1
+
+      - name: Install ffigen
+        run: dart pub global activate ffigen ^5.0.0 # TODO migrate to 6.x later
 
       - name: Install dart dependencies
         working-directory: ./frb_example/pure_dart/dart
@@ -69,9 +72,10 @@ jobs:
           echo UDID=$UDID
           xcrun simctl boot "${UDID:?No Simulator with this name found}"
 
-      - uses: subosito/flutter-action@v1
+      - uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: "stable"
+          architecture: x64
 
       - uses: actions/checkout@v2
 
@@ -103,7 +107,7 @@ jobs:
   # ref https://betterprogramming.pub/test-flutter-apps-on-android-with-github-actions-abdba2137b4
   flutter_android_test:
     name: Flutter (Android) integration test
-    runs-on: macOS-latest # "betterprogramming.pub" says must be macOS
+    runs-on: macos-latest
 
     strategy:
       matrix:
@@ -114,6 +118,16 @@ jobs:
 
     steps:
       - uses: actions/checkout@v2
+      
+      # #499, https://github.com/actions/virtual-environments/issues/5595
+      - name: Configure ndk
+        run: |
+           ANDROID_HOME=$HOME/Library/Android/sdk
+           SDKMANAGER=$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager
+           
+           echo y | $SDKMANAGER "ndk;21.4.7075529"
+           
+           ln -sfn $ANDROID_HOME/ndk/21.4.7075529 $ANDROID_HOME/ndk-bundle
 
       - name: Install Rust toolchain
         uses: actions-rs/toolchain@v1
@@ -121,16 +135,17 @@ jobs:
           profile: minimal
           toolchain: stable
 
-      - uses: subosito/flutter-action@v1
+      - uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: "stable"
+          architecture: x64
 
       - uses: actions/setup-java@v1
         with:
-          java-version: '8.x' # "betterprogramming.pub" says must be java "8"
+          java-version: "8.x" # "betterprogramming.pub" says must be java "8"
 
       - name: Install cargo ndk
-        run: cargo install cargo-ndk && rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android i686-linux-android
+        run: cargo install cargo-ndk && rustup target add x86_64-linux-android
 
       - name: Install Flutter dependencies
         working-directory: ./frb_example/with_flutter
@@ -139,7 +154,7 @@ jobs:
       - name: Build Rust lib
         working-directory: ./frb_example/with_flutter/rust
         # NOTE since run on simulator, need -t to be x86_64. For real devices, of course arm-like ones.
-        run: cargo ndk -t armeabi-v7a -t arm64-v8a -t x86 -t x86_64 -o ../android/app/src/main/jniLibs build && find ../android/app/src/main/jniLibs
+        run: cargo ndk -t x86_64 -o ../android/app/src/main/jniLibs build
 
       - name: Run Flutter integration tests
         id: run_flutter_integration_test
@@ -148,6 +163,8 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
+          arch: x86_64
+          profile: ${{ matrix.device }}
           script: |
             cd frb_example/with_flutter && flutter test integration_test/main.dart --verbose
 
@@ -161,6 +178,8 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 29
+          arch: x86_64
+          profile: ${{ matrix.device }}
           script: |
             cd frb_example/with_flutter && flutter test integration_test/main.dart --verbose
 
@@ -176,7 +195,7 @@ jobs:
 
   flutter_windows_test:
     name: Flutter (Windows) integration test
-    runs-on: windows-latest
+    runs-on: windows-2019
 
     steps:
       - name: Install Rust toolchain
@@ -185,9 +204,9 @@ jobs:
           profile: minimal
           toolchain: stable
 
-      - uses: subosito/flutter-action@v1
+      - uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: "stable"
 
       - uses: actions/checkout@v2
 
@@ -202,9 +221,21 @@ jobs:
         working-directory: ./frb_example/with_flutter
         run: flutter test -d windows integration_test/main.dart --verbose
 
+      - name: Install Corrosion
+        run: |
+          git clone https://github.com/corrosion-rs/corrosion.git
+          cmake -Scorrosion -Bbuild -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+          cmake --install build --config Release
+          echo "C:\Program Files (x86)\Corrosion" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Run Flutter integration tests explicitly requiring Corrosion
+        working-directory: ./frb_example/with_flutter
+        run: |
+          mv -Force windows/rust.require.cmake windows/rust.cmake
+          flutter test -d windows integration_test/main.dart --verbose
+
   flutter_macos_test:
-    # Disabled due to issues mentioned in https://github.com/fzyzcjy/flutter_rust_bridge/pull/211
-    if: false
     name: Flutter (macOS) integration test
     runs-on: macos-11
 
@@ -215,9 +246,10 @@ jobs:
           profile: minimal
           toolchain: stable
 
-      - uses: subosito/flutter-action@v1
+      - uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: "stable"
+          architecture: x64
 
       - uses: actions/checkout@v2
 
@@ -233,10 +265,8 @@ jobs:
         run: flutter test -d macos integration_test/main.dart --verbose
 
   flutter_linux_test:
-    # Disabled due to issues running Linux GUI applications in CI
-    if: false
     name: Flutter (Linux) integration test
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v2
@@ -248,12 +278,12 @@ jobs:
           toolchain: stable
 
       # From Flutter Gallery CI
-      - uses: subosito/flutter-action@4389e6cbc6cb8a4b18c628ff96ff90be0e926aa8
+      - uses: subosito/flutter-action@v2
         with:
-          channel: master
+          channel: "stable"
 
       - name: Install Flutter build tools
-        run: sudo apt-get -y install clang cmake ninja-build pkg-config libgtk-3-dev libglu1-mesa
+        run: sudo apt update && sudo apt-get -y install clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libglu1-mesa
 
       - run: flutter config --enable-linux-desktop
 
@@ -262,9 +292,27 @@ jobs:
       - run: flutter pub get
         working-directory: ./frb_example/with_flutter
 
+      - name: Setup headless display
+        uses: pyvista/setup-headless-display-action@v1
+
       - name: Run Flutter integration tests
         working-directory: ./frb_example/with_flutter
         run: flutter test -d linux integration_test/main.dart --verbose
+
+      - name: Install Corrosion
+        run: |
+          set -euxo pipefail
+          git clone https://github.com/corrosion-rs/corrosion.git
+          cmake -Scorrosion -Bbuild -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --config Release
+          sudo cmake --install build --config Release
+
+      - name: Run Flutter integration tests explicitly requiring Corrosion
+        working-directory: ./frb_example/with_flutter
+        run: |
+          set -euxo pipefail
+          mv linux/rust.require.cmake linux/rust.cmake
+          flutter test -d linux integration_test/main.dart --verbose
 
   # -------------------------- linter --------------------------
   rust_build_and_test:
@@ -274,6 +322,11 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
+      - uses: dart-lang/setup-dart@v1
+      - name: Install ffigen
+        run: dart pub global activate ffigen ^5.0.0 # TODO migrate to 6.x later
+      - name: Install llvm dependency (Linux)
+        run: sudo apt update && sudo apt-get install -y libclang-dev
       - name: Build codegen
         working-directory: ./frb_codegen
         run: cargo build --verbose
@@ -312,6 +365,13 @@ jobs:
   rust_linter:
     name: Rust linter using Clippy and rustfmt
     runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        cargo_toolchain_version:
+          - stable
+          - 1.55.0
+
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -320,8 +380,14 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: stable
+          toolchain: ${{ matrix.cargo_toolchain_version }}
           components: rustfmt, clippy
+
+      - uses: dart-lang/setup-dart@v1
+      - name: Install ffigen
+        run: dart pub global activate ffigen ^5.0.0 # TODO migrate to 6.x later
+      - name: Install llvm dependency (Linux)
+        run: sudo apt update && sudo apt-get install -y libclang-dev
 
       - name: Run fmt for codegen
         uses: actions-rs/cargo@v1
@@ -397,7 +463,8 @@ jobs:
         run: dart pub get
       - name: Verify formatting for dart runtime
         working-directory: ./frb_dart
-        run: dart format --output=none --set-exit-if-changed --line-length 120 .
+        # 80 instead of 120
+        run: dart format --output=none --set-exit-if-changed --line-length 80 .
       - name: Analyze project source for dart runtime
         working-directory: ./frb_dart
         run: dart analyze --fatal-infos
@@ -412,9 +479,9 @@ jobs:
         working-directory: ./frb_example/pure_dart/dart
         run: dart analyze --fatal-infos
 
-      - uses: subosito/flutter-action@v1
+      - uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
+          channel: "stable"
 
       - name: Install dependencies for with_flutter example
         working-directory: ./frb_example/with_flutter
@@ -427,11 +494,11 @@ jobs:
         run: flutter analyze --fatal-infos
 
       - name: Install pana
-        run: pub global activate pana
+        run: flutter pub global activate pana
 
       - name: Analyze dart package using pana
         working-directory: ./frb_dart
-        run: pana --no-warning --line-length 120 --exit-code-threshold 0
+        run: pana --no-warning --line-length 80 --exit-code-threshold 0
 
   # -------------------------- codegen --------------------------
   codegen:
@@ -445,8 +512,6 @@ jobs:
             family: osx
           - image: macos-11
             family: osx
-          - image: windows-2016
-            family: windows
           - image: windows-2019
             family: windows
           # #113
@@ -463,12 +528,12 @@ jobs:
       - uses: dart-lang/setup-dart@v1
 
       - name: Install dart global dependency
-        run: dart pub global activate ffigen
+        run: dart pub global activate ffigen ^5.0.0 # TODO migrate to 6.x later
 
       # needed by `ffigen`, see https://github.com/dart-lang/ffigen#installing-llvm
       - name: Install llvm dependency (Linux)
         if: ${{ matrix.os.family == 'linux' }}
-        run: sudo apt-get install -y libclang-dev
+        run: sudo apt update && sudo apt-get install -y libclang-dev
 
       # NOTE in windows, need "\\" instead of "/"
       - name: Run codegen to pure_dart example (non-windows)
@@ -497,5 +562,14 @@ jobs:
         env:
           RUST_LOG: debug
 
-      - name: 'Check no code change (If fail: Please ensure you have run codegen on examples and commit those changes!)'
+      # #467
+      - name: "Modify cross-platform code (osx)"
+        if: ${{ matrix.os.family == 'osx' }}
+        # note the "-i '' -e" is a bug of sed specific to MacOS https://stackoverflow.com/questions/19456518
+        run: sed -i '' -e 's/^typedef uintptr_t =.*$/typedef uintptr_t = ffi.UnsignedLong;/g' frb_example/pure_dart/dart/lib/bridge_generated.dart
+      - name: "Modify cross-platform code (non-osx)"
+        if: ${{ matrix.os.family != 'osx' }}
+        run: sed -i -e 's/^typedef uintptr_t =.*$/typedef uintptr_t = ffi.UnsignedLong;/g' frb_example/pure_dart/dart/lib/bridge_generated.dart
+
+      - name: "Check no code change (If fail: Please ensure you have run codegen on examples and commit those changes!)"
         run: git diff --exit-code

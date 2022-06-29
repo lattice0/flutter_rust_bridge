@@ -9,6 +9,8 @@ mod ty_primitive;
 mod ty_primitive_list;
 mod ty_struct;
 
+use std::collections::HashSet;
+
 pub use ty::*;
 pub use ty_boxed::*;
 pub use ty_delegate::*;
@@ -38,14 +40,68 @@ pub fn generate(
     dart_api_class_name: &str,
     dart_api_impl_class_name: &str,
     dart_wire_class_name: &str,
-) -> Output {
+    dart_output_file_root: &str,
+) -> (Output, bool) {
+    let DartApiSpec {
+        dart_funcs,
+        dart_structs,
+        dart_api2wire_funcs,
+        dart_api_fill_to_wire_funcs,
+        dart_wire2api_funcs,
+        needs_freezed,
+    } = get_dart_api_spec_from_ir_file(ir_file);
+
+    let common_header = generate_common_header();
+
+    let decl_code = generate_dart_declaration_code(
+        &common_header,
+        generate_freezed_header(dart_output_file_root, needs_freezed),
+        generate_import_header(get_dart_imports(ir_file)),
+        generate_dart_declaration_body(dart_api_class_name, &dart_funcs, &dart_structs),
+    );
+
+    let impl_code = generate_dart_implementation_code(
+        &common_header,
+        generate_dart_implementation_body(
+            &dart_funcs,
+            &dart_api2wire_funcs,
+            &dart_api_fill_to_wire_funcs,
+            &dart_wire2api_funcs,
+            dart_api_impl_class_name,
+            dart_wire_class_name,
+            dart_api_class_name,
+        ),
+    );
+
+    let file_prelude = generate_file_prelude();
+
+    (
+        Output {
+            file_prelude,
+            decl_code,
+            impl_code,
+        },
+        needs_freezed,
+    )
+}
+
+struct DartApiSpec {
+    dart_funcs: Vec<GeneratedApiFunc>,
+    dart_structs: Vec<String>,
+    dart_api2wire_funcs: Vec<String>,
+    dart_api_fill_to_wire_funcs: Vec<String>,
+    dart_wire2api_funcs: Vec<String>,
+    needs_freezed: bool,
+}
+
+fn get_dart_api_spec_from_ir_file(ir_file: &IrFile) -> DartApiSpec {
     let distinct_types = ir_file.distinct_types(true, true);
     let distinct_input_types = ir_file.distinct_types(true, false);
     let distinct_output_types = ir_file.distinct_types(false, true);
     debug!("distinct_input_types={:?}", distinct_input_types);
     debug!("distinct_output_types={:?}", distinct_output_types);
 
-    let dart_func_signatures_and_implementations = ir_file
+    let dart_funcs = ir_file
         .funcs
         .iter()
         .map(generate_api_func)
@@ -67,28 +123,77 @@ pub fn generate(
         .map(|ty| generate_wire2api_func(ty, ir_file))
         .collect::<Vec<_>>();
 
-    let needs_freezed = distinct_types
-        .iter()
-        .any(|ty| matches!(ty, EnumRef(e) if e.is_struct));
-    let freezed_header = if needs_freezed {
+    let needs_freezed = distinct_types.iter().any(|ty| match ty {
+        EnumRef(e) if e.is_struct => true,
+        StructRef(s) if s.freezed => true,
+        _ => false,
+    });
+
+    DartApiSpec {
+        dart_funcs,
+        dart_structs,
+        dart_api2wire_funcs,
+        dart_api_fill_to_wire_funcs,
+        dart_wire2api_funcs,
+        needs_freezed,
+    }
+}
+
+fn generate_freezed_header(dart_output_file_root: &str, needs_freezed: bool) -> DartBasicCode {
+    if needs_freezed {
         DartBasicCode {
             import: "import 'package:freezed_annotation/freezed_annotation.dart';".to_string(),
-            part: "part 'bridge_generated.freezed.dart';".to_string(),
+            part: format!("part '{}.freezed.dart';", dart_output_file_root),
             body: "".to_string(),
         }
     } else {
         DartBasicCode::default()
-    };
+    }
+}
 
-    let common_header = DartBasicCode {
+fn generate_import_header(imports: HashSet<&IrDartImport>) -> DartBasicCode {
+    if !imports.is_empty() {
+        DartBasicCode {
+            import: imports
+                .iter()
+                .map(|it| match &it.alias {
+                    Some(alias) => format!("import '{}' as {};", it.uri, alias),
+                    _ => format!("import '{}';", it.uri),
+                })
+                .collect::<Vec<_>>()
+                .join("\n"),
+            part: "".to_string(),
+            body: "".to_string(),
+        }
+    } else {
+        DartBasicCode::default()
+    }
+}
+
+fn generate_common_header() -> DartBasicCode {
+    DartBasicCode {
         import: "import 'dart:convert';
             import 'dart:typed_data';"
             .to_string(),
         part: "".to_string(),
         body: "".to_string(),
-    };
+    }
+}
 
-    let decl_body = format!(
+fn get_dart_imports(ir_file: &IrFile) -> HashSet<&IrDartImport> {
+    ir_file
+        .struct_pool
+        .values()
+        .flat_map(|s| s.dart_metadata.iter().flat_map(|it| &it.library))
+        .collect()
+}
+
+fn generate_dart_declaration_body(
+    dart_api_class_name: &str,
+    dart_funcs: &[GeneratedApiFunc],
+    dart_structs: &[String],
+) -> String {
+    format!(
         "abstract class {} {{
             {}
         }}
@@ -96,15 +201,28 @@ pub fn generate(
         {}
         ",
         dart_api_class_name,
-        dart_func_signatures_and_implementations
+        dart_funcs
             .iter()
-            .map(|(sig, _, comm)| format!("{}{}", comm, sig))
+            .map(|func| format!(
+                "{}{}\n\n{}",
+                func.comments, func.signature, func.companion_field_signature,
+            ))
             .collect::<Vec<_>>()
             .join("\n\n"),
         dart_structs.join("\n\n"),
-    );
+    )
+}
 
-    let impl_body = format!(
+fn generate_dart_implementation_body(
+    dart_funcs: &[GeneratedApiFunc],
+    dart_api2wire_funcs: &[String],
+    dart_api_fill_to_wire_funcs: &[String],
+    dart_wire2api_funcs: &[String],
+    dart_api_impl_class_name: &str,
+    dart_wire_class_name: &str,
+    dart_api_class_name: &str,
+) -> String {
+    format!(
         "class {dart_api_impl_class_name} extends FlutterRustBridgeBase<{dart_wire_class_name}> implements {dart_api_class_name} {{
             factory {dart_api_impl_class_name}(ffi.DynamicLibrary dylib) => {dart_api_impl_class_name}.raw({dart_wire_class_name}(dylib));
 
@@ -122,9 +240,12 @@ pub fn generate(
         // Section: wire2api
         {}
         ",
-        dart_func_signatures_and_implementations
+        dart_funcs
             .iter()
-            .map(|(_, imp, _)| imp.clone())
+            .map(|func| format!(
+                "{}\n\n{}",
+                func.implementation, func.companion_field_implementation,
+            ))
             .collect::<Vec<_>>()
             .join("\n\n"),
         dart_api2wire_funcs.join("\n\n"),
@@ -133,42 +254,59 @@ pub fn generate(
         dart_api_impl_class_name = dart_api_impl_class_name,
         dart_wire_class_name = dart_wire_class_name,
         dart_api_class_name = dart_api_class_name,
-    );
+    )
+}
 
-    let decl_code = &common_header
+fn generate_dart_declaration_code(
+    common_header: &DartBasicCode,
+    freezed_header: DartBasicCode,
+    import_header: DartBasicCode,
+    declaration_body: String,
+) -> DartBasicCode {
+    common_header
         + &freezed_header
+        + &import_header
         + &DartBasicCode {
             import: "".to_string(),
             part: "".to_string(),
-            body: decl_body,
-        };
+            body: declaration_body,
+        }
+}
 
-    let impl_code = &common_header
+fn generate_dart_implementation_code(
+    common_header: &DartBasicCode,
+    implementation_body: String,
+) -> DartBasicCode {
+    common_header
         + &DartBasicCode {
             import: "import 'package:flutter_rust_bridge/flutter_rust_bridge.dart';".to_string(),
             part: "".to_string(),
-            body: impl_body,
-        };
+            body: implementation_body,
+        }
+}
 
-    let file_prelude = DartBasicCode {
+fn generate_file_prelude() -> DartBasicCode {
+    DartBasicCode {
         import: format!("{}
-            
-                // ignore_for_file: non_constant_identifier_names, unused_element, duplicate_ignore, directives_ordering, curly_braces_in_flow_control_structures, unnecessary_lambdas, slash_for_doc_comments, prefer_const_literals_to_create_immutables, implicit_dynamic_list_literal, duplicate_import, unused_import
+
+                // ignore_for_file: non_constant_identifier_names, unused_element, duplicate_ignore, directives_ordering, curly_braces_in_flow_control_structures, unnecessary_lambdas, slash_for_doc_comments, prefer_const_literals_to_create_immutables, implicit_dynamic_list_literal, duplicate_import, unused_import, prefer_single_quotes, prefer_const_constructors, use_super_parameters, always_use_package_imports
                 ",
-                CODE_HEADER
+                        CODE_HEADER
         ),
         part: "".to_string(),
         body: "".to_string(),
-    };
-
-    Output {
-        file_prelude,
-        decl_code,
-        impl_code,
     }
 }
 
-fn generate_api_func(func: &IrFunc) -> (String, String, String) {
+struct GeneratedApiFunc {
+    signature: String,
+    implementation: String,
+    comments: String,
+    companion_field_signature: String,
+    companion_field_implementation: String,
+}
+
+fn generate_api_func(func: &IrFunc) -> GeneratedApiFunc {
     let raw_func_param_list = func
         .inputs
         .iter()
@@ -194,7 +332,7 @@ fn generate_api_func(func: &IrFunc) -> (String, String, String) {
             .iter()
             .map(|input| {
                 // edge case: ffigen performs its own bool-to-int conversions
-                if let IrType::Primitive(IrTypePrimitive::Bool) = input.ty {
+                if let Primitive(IrTypePrimitive::Bool) = input.ty {
                     input.name.dart_style()
                 } else {
                     format!(
@@ -221,25 +359,19 @@ fn generate_api_func(func: &IrFunc) -> (String, String, String) {
         IrFuncMode::Stream => "executeStream",
     };
 
+    let const_meta_field_name = format!("k{}ConstMeta", func.name.to_case(Case::Pascal));
+
     let signature = format!("{};", partial);
 
     let comments = dart_comments(&func.comments);
 
     let task_common_args = format!(
         "
-        constMeta: const FlutterRustBridgeTaskConstMeta(
-            debugName: \"{}\",
-            argNames: [{}],
-        ),
+        constMeta: {},
         argValues: [{}],
         hint: hint,
         ",
-        func.name,
-        func.inputs
-            .iter()
-            .map(|input| format!("\"{}\"", input.name.dart_style()))
-            .collect::<Vec<_>>()
-            .join(", "),
+        const_meta_field_name,
         func.inputs
             .iter()
             .map(|input| input.name.dart_style())
@@ -274,7 +406,34 @@ fn generate_api_func(func: &IrFunc) -> (String, String, String) {
         ),
     };
 
-    (signature, implementation, comments)
+    let companion_field_signature = format!(
+        "FlutterRustBridgeTaskConstMeta get {};",
+        const_meta_field_name,
+    );
+
+    let companion_field_implementation = format!(
+        "
+        FlutterRustBridgeTaskConstMeta get {} => const FlutterRustBridgeTaskConstMeta(
+            debugName: \"{}\",
+            argNames: [{}],
+        );
+        ",
+        const_meta_field_name,
+        func.name,
+        func.inputs
+            .iter()
+            .map(|input| format!("\"{}\"", input.name.dart_style()))
+            .collect::<Vec<_>>()
+            .join(", "),
+    );
+
+    GeneratedApiFunc {
+        signature,
+        implementation,
+        comments,
+        companion_field_signature,
+        companion_field_implementation,
+    }
 }
 
 fn generate_api2wire_func(ty: &IrType, ir_file: &IrFile) -> String {
@@ -344,4 +503,21 @@ fn dart_comments(comments: &[IrComment]) -> String {
         comments.push('\n');
     }
     comments
+}
+
+fn dart_metadata(metadata: &[IrDartAnnotation]) -> String {
+    let mut metadata = metadata
+        .iter()
+        .map(|it| match &it.library {
+            Some(IrDartImport {
+                alias: Some(alias), ..
+            }) => format!("@{}.{}", alias, it.content),
+            _ => format!("@{}", it.content),
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    if !metadata.is_empty() {
+        metadata.push('\n');
+    }
+    metadata
 }

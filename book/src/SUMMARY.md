@@ -11,7 +11,7 @@
     - [Vec](feature/lang_vec.md)
     - [Struct](feature/lang_struct.md)
     - [Enum](feature/lang_enum.md)
-    - [Use](feature/lang_use.md)
+    - [External types](feature/lang_external.md)
     - [Option](feature/lang_option.md)
   - [Zero copy](feature/zero_copy.md)
   - [Stream / Iterator](feature/stream.md)
@@ -33,6 +33,7 @@
     - [Android setup](template/setup_android.md)
     - [iOS setup](template/setup_ios.md)
     - [Web setup](template/setup_web.md)
+    - [Windows and Linux](template/setup_desktop.md)
     - [Other platforms](template/setup_others.md)
   - [Template tour](template/tour.md)
     - [native/src/api.rs](template/tour_api.md)
@@ -56,9 +57,10 @@
     - [Linking the project](integrate/ios_linking.md)
     - [Generating bindings](integrate/ios_gen.md)
     - [Using dummy headers](integrate/ios_headers.md)
-  - [Integrating with Desktop](integrate/desktop.md)
+  - [Integrating with Windows and Linux](integrate/desktop.md)
   - [Integrating with Web](integrate/web.md)
   - [Using the dynamic library](integrate/usage.md)
+  - [Wrapping up](integrate/finish.md)
 
 # Part III: More Doc
 
