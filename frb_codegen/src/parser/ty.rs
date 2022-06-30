@@ -54,6 +54,8 @@ pub enum SupportedInnerType {
     Array(Box<Self>, usize),
     /// The unit type `()`.
     Unit,
+    /// Unparsed type, only useful for Opaque.
+    Verbatim(Box<syn::Type>),
 }
 
 impl std::fmt::Display for SupportedInnerType {
@@ -62,6 +64,7 @@ impl std::fmt::Display for SupportedInnerType {
             Self::Path(p) => write!(f, "{}", p),
             Self::Array(u, len) => write!(f, "[{}; {}]", u, len),
             Self::Unit => write!(f, "()"),
+            Self::Verbatim(ver) => write!(f, "{}", quote::quote!(#ver)),
         }
     }
 }
@@ -109,7 +112,7 @@ impl SupportedInnerType {
                             generic,
                         }))
                     }
-                    _ => None,
+                    _ => Some(SupportedInnerType::Verbatim(Box::new(ty.clone()))),
                 }
             }
             syn::Type::Array(syn::TypeArray { elem, len, .. }) => {
@@ -128,7 +131,7 @@ impl SupportedInnerType {
             syn::Type::Tuple(syn::TypeTuple { elems, .. }) if elems.is_empty() => {
                 Some(SupportedInnerType::Unit)
             }
-            _ => None,
+            _ => Some(SupportedInnerType::Verbatim(Box::new(ty.clone()))),
         }
     }
 }
@@ -148,6 +151,7 @@ impl<'a> TypeParser<'a> {
             SupportedInnerType::Path(p) => self.convert_path_to_ir_type(p),
             SupportedInnerType::Array(p, len) => self.convert_array_to_ir_type(*p, len),
             SupportedInnerType::Unit => Some(IrType::Primitive(IrTypePrimitive::Unit)),
+            SupportedInnerType::Verbatim(_) => None,
         }
     }
 
@@ -242,6 +246,15 @@ impl<'a> TypeParser<'a> {
                         other => IrType::Optional(IrTypeOptional::new_ptr(other)),
                     })
                 }
+                "Opaque" => match &*generic {
+                    SupportedInnerType::Verbatim(ver) => {
+                        Some(IrType::Opaque(IrTypeOpaque::from(ver.as_ref())))
+                    }
+                    SupportedInnerType::Path(path) => {
+                        Some(IrType::Opaque(IrTypeOpaque::from(path.to_string())))
+                    }
+                    SupportedInnerType::Unit => Some(IrType::Opaque(IrTypeOpaque::new_unit())),
+                },
                 _ => None,
             }
         } else {
