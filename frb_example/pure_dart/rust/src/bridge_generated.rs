@@ -490,156 +490,32 @@ pub extern "C" fn wire_use_imported_enum(port_: i64, my_enum: i32) {
 }
 
 #[no_mangle]
-<<<<<<< HEAD
-pub extern "C" fn wire_get_app_settings(port_: i64) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
-        WrapInfo {
-            debug_name: "get_app_settings",
-            port: Some(port_),
-            mode: FfiCallMode::Normal,
-        },
-        move || move |task_callback| Ok(mirror_ApplicationSettings(get_app_settings())),
-    )
-}
-
-#[no_mangle]
-pub extern "C" fn wire_is_app_embedded(port_: i64, app_settings: *mut wire_ApplicationSettings) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
-        WrapInfo {
-            debug_name: "is_app_embedded",
-=======
 pub extern "C" fn wire_handle_opaque(port_: i64, value: *mut wire_OpaqueBag) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap(
         WrapInfo {
             debug_name: "handle_opaque",
->>>>>>> 0debe41af8474487beffce8fc6b181481e7cfff9
             port: Some(port_),
             mode: FfiCallMode::Normal,
         },
         move || {
-<<<<<<< HEAD
-            let api_app_settings = app_settings.wire2api();
-            move |task_callback| Ok(is_app_embedded(api_app_settings))
-=======
             let api_value = value.wire2api();
             move |task_callback| handle_opaque(api_value)
->>>>>>> 0debe41af8474487beffce8fc6b181481e7cfff9
         },
     )
 }
 
 #[no_mangle]
-<<<<<<< HEAD
-pub extern "C" fn wire_get_message(port_: i64) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
-        WrapInfo {
-            debug_name: "get_message",
-            port: Some(port_),
-            mode: FfiCallMode::Normal,
-        },
-        move || move |task_callback| Ok(mirror_ApplicationMessage(get_message())),
-    )
-}
-
-#[no_mangle]
-pub extern "C" fn wire_get_array(port_: i64) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
-        WrapInfo {
-            debug_name: "get_array",
-            port: Some(port_),
-            mode: FfiCallMode::Normal,
-        },
-        move || move |task_callback| Ok(get_array()),
-    )
-}
-
-#[no_mangle]
-pub extern "C" fn wire_get_complex_array(port_: i64) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
-        WrapInfo {
-            debug_name: "get_complex_array",
-            port: Some(port_),
-            mode: FfiCallMode::Normal,
-        },
-        move || move |task_callback| Ok(get_complex_array()),
-    )
-}
-
-#[no_mangle]
-pub extern "C" fn wire_get_usize(port_: i64, u: usize) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
-        WrapInfo {
-            debug_name: "get_usize",
-=======
 pub extern "C" fn wire_handle_opaque_repr(port_: i64, value: *mut wire_RwLockI32) {
     FLUTTER_RUST_BRIDGE_HANDLER.wrap(
         WrapInfo {
             debug_name: "handle_opaque_repr",
->>>>>>> 0debe41af8474487beffce8fc6b181481e7cfff9
             port: Some(port_),
             mode: FfiCallMode::Normal,
         },
         move || {
-<<<<<<< HEAD
-            let api_u = u.wire2api();
-            move |task_callback| Ok(get_usize(api_u))
-        },
-    )
-}
-
-#[no_mangle]
-pub extern "C" fn wire_next_user_id(port_: i64, user_id: *mut wire_UserId) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
-        WrapInfo {
-            debug_name: "next_user_id",
-            port: Some(port_),
-            mode: FfiCallMode::Normal,
-        },
-        move || {
-            let api_user_id = user_id.wire2api();
-            move |task_callback| Ok(next_user_id(api_user_id))
-        },
-    )
-}
-
-#[no_mangle]
-pub extern "C" fn wire_register_event_listener(port_: i64) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
-        WrapInfo {
-            debug_name: "register_event_listener",
-            port: Some(port_),
-            mode: FfiCallMode::Stream,
-        },
-        move || move |task_callback| register_event_listener(task_callback.stream_sink()),
-    )
-}
-
-#[no_mangle]
-pub extern "C" fn wire_close_event_listener(port_: i64) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
-        WrapInfo {
-            debug_name: "close_event_listener",
-            port: Some(port_),
-            mode: FfiCallMode::Normal,
-        },
-        move || move |task_callback| Ok(close_event_listener()),
-    )
-}
-
-#[no_mangle]
-pub extern "C" fn wire_create_event(port_: i64) {
-    FLUTTER_RUST_BRIDGE_HANDLER.wrap(
-        WrapInfo {
-            debug_name: "create_event",
-            port: Some(port_),
-            mode: FfiCallMode::Normal,
-        },
-        move || move |task_callback| Ok(create_event()),
-=======
             let api_value = value.wire2api();
             move |task_callback| handle_opaque_repr(api_value)
         },
->>>>>>> 0debe41af8474487beffce8fc6b181481e7cfff9
     )
 }
 
@@ -1060,13 +936,8 @@ pub extern "C" fn new_box_autoadd_new_type_int() -> *mut wire_NewTypeInt {
 }
 
 #[no_mangle]
-<<<<<<< HEAD
-pub extern "C" fn new_box_autoadd_user_id() -> *mut wire_UserId {
-    support::new_leak_box_ptr(wire_UserId::new_with_null_ptr())
-=======
 pub extern "C" fn new_box_autoadd_opaque_bag() -> *mut wire_OpaqueBag {
     support::new_leak_box_ptr(wire_OpaqueBag::new_with_null_ptr())
->>>>>>> 0debe41af8474487beffce8fc6b181481e7cfff9
 }
 
 #[no_mangle]
@@ -1437,13 +1308,8 @@ impl Wire2Api<NewTypeInt> for *mut wire_NewTypeInt {
     }
 }
 
-<<<<<<< HEAD
-impl Wire2Api<UserId> for *mut wire_UserId {
-    fn wire2api(self) -> UserId {
-=======
 impl Wire2Api<OpaqueBag> for *mut wire_OpaqueBag {
     fn wire2api(self) -> OpaqueBag {
->>>>>>> 0debe41af8474487beffce8fc6b181481e7cfff9
         let wrap = unsafe { support::box_from_leak_ptr(self) };
         (*wrap).wire2api().into()
     }
@@ -1817,32 +1683,6 @@ impl<T> NewWithNullPtr for *mut T {
     }
 }
 
-<<<<<<< HEAD
-impl NewWithNullPtr for wire_ApplicationEnv {
-    fn new_with_null_ptr() -> Self {
-        Self {
-            vars: core::ptr::null_mut(),
-        }
-    }
-}
-
-impl NewWithNullPtr for wire_ApplicationEnvVar {
-    fn new_with_null_ptr() -> Self {
-        Self {
-            field0: core::ptr::null_mut(),
-            field1: Default::default(),
-        }
-    }
-}
-
-impl NewWithNullPtr for wire_ApplicationSettings {
-    fn new_with_null_ptr() -> Self {
-        Self {
-            name: core::ptr::null_mut(),
-            version: core::ptr::null_mut(),
-            mode: Default::default(),
-            env: core::ptr::null_mut(),
-=======
 impl NewWithNullPtr for wire_BoxDartDebug {
     fn new_with_null_ptr() -> Self {
         Self {
@@ -1868,7 +1708,6 @@ impl NewWithNullPtr for wire_Str {
     fn new_with_null_ptr() -> Self {
         Self {
             ptr: core::ptr::null(),
->>>>>>> 0debe41af8474487beffce8fc6b181481e7cfff9
         }
     }
 }
@@ -2007,12 +1846,6 @@ impl NewWithNullPtr for wire_NewTypeInt {
     }
 }
 
-<<<<<<< HEAD
-impl NewWithNullPtr for wire_UserId {
-    fn new_with_null_ptr() -> Self {
-        Self {
-            value: Default::default(),
-=======
 impl NewWithNullPtr for wire_OpaqueBag {
     fn new_with_null_ptr() -> Self {
         Self {
@@ -2020,7 +1853,6 @@ impl NewWithNullPtr for wire_OpaqueBag {
             array: core::ptr::null_mut(),
             lifetime: core::ptr::null_mut(),
             trait_obj: core::ptr::null_mut(),
->>>>>>> 0debe41af8474487beffce8fc6b181481e7cfff9
         }
     }
 }
@@ -2198,21 +2030,6 @@ impl support::IntoDart for NewTypeInt {
 }
 impl support::IntoDartExceptPrimitive for NewTypeInt {}
 
-<<<<<<< HEAD
-impl support::IntoDart for Point {
-    fn into_dart(self) -> support::DartCObject {
-        vec![self.x.into_dart(), self.y.into_dart()].into_dart()
-    }
-}
-impl support::IntoDartExceptPrimitive for Point {}
-
-impl support::IntoDart for UserId {
-    fn into_dart(self) -> support::DartCObject {
-        vec![self.value.into_dart()].into_dart()
-    }
-}
-impl support::IntoDartExceptPrimitive for UserId {}
-=======
 impl support::IntoDart for OpaqueBag {
     fn into_dart(self) -> support::DartCObject {
         vec![
@@ -2225,7 +2042,6 @@ impl support::IntoDart for OpaqueBag {
     }
 }
 impl support::IntoDartExceptPrimitive for OpaqueBag {}
->>>>>>> 0debe41af8474487beffce8fc6b181481e7cfff9
 
 impl support::IntoDart for VecOfPrimitivePack {
     fn into_dart(self) -> support::DartCObject {
