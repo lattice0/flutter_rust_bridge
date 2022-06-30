@@ -254,6 +254,7 @@ impl<'a> TypeParser<'a> {
                         Some(IrType::Opaque(IrTypeOpaque::from(path.to_string())))
                     }
                     SupportedInnerType::Unit => Some(IrType::Opaque(IrTypeOpaque::new_unit())),
+                    SupportedInnerType::Array(..) => panic!("array unsupported"),
                 },
                 _ => None,
             }
