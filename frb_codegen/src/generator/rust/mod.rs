@@ -244,11 +244,10 @@ impl Generator {
                 .collect::<Vec<_>>(),
         ]
         .concat();
-
-        let inner_func_params = [
+        let mut inner_func_params = [
             match func.mode {
                 IrFuncMode::Normal | IrFuncMode::Sync => vec![],
-                IrFuncMode::Stream => vec!["task_callback.stream_sink()".to_string()],
+                _ => vec![],
             },
             func.inputs
                 .iter()
@@ -256,7 +255,9 @@ impl Generator {
                 .collect::<Vec<_>>(),
         ]
         .concat();
-
+        if let IrFuncMode::Stream { argument_index } = func.mode {
+            inner_func_params.insert(argument_index, "task_callback.stream_sink()".to_string());
+        }
         let wrap_info_obj = format!(
             "WrapInfo{{ debug_name: \"{}\", port: {}, mode: FfiCallMode::{} }}",
             func.name,
@@ -299,7 +300,7 @@ impl Generator {
                     code_wire2api, code_call_inner_func_result,
                 ),
             ),
-            IrFuncMode::Normal | IrFuncMode::Stream => (
+            IrFuncMode::Normal | IrFuncMode::Stream { .. } => (
                 "wrap",
                 None,
                 format!(
